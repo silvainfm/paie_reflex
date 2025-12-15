@@ -14,7 +14,6 @@ from datetime import datetime, timedelta
 import pickle
 
 # OAuth2 and email libraries
-import streamlit as st
 #import msal
 import requests
 
@@ -359,67 +358,6 @@ class OAuth2EmailManager:
         if provider == 'microsoft':
             return self.microsoft_service.revoke_access()
         return False
-
-
-def create_oauth2_setup_ui():
-    """Create Streamlit UI for OAuth2 setup"""
-    
-    st.header("🔐 Configuration OAuth2")
-    
-    oauth_manager = OAuth2EmailManager()
-    
-    # Check current authentication status
-    auth_status = oauth_manager.check_authentication()
-
-    col1 = st.columns(1)
-
-    with col1:
-        st.subheader("Office 365 (Microsoft OAuth2)")
-        
-        if auth_status['microsoft']:
-            st.success("✅ Authentifié avec Microsoft")
-            if st.button("🔓 Révoquer l'accès Microsoft"):
-                if oauth_manager.revoke_access('microsoft'):
-                    st.success("Accès Microsoft révoqué")
-                    st.rerun()
-        else:
-            with st.form("microsoft_oauth_form"):
-                st.info("Configurez OAuth2 pour Office 365")
-                
-                tenant_id = st.text_input("Tenant ID")
-                client_id_ms = st.text_input("Client ID", key="ms_client_id")
-                client_secret_ms = st.text_input("Client Secret", type="password", key="ms_client_secret")
-                
-                if st.form_submit_button("Configurer Microsoft OAuth2"):
-                    if tenant_id and client_id_ms and client_secret_ms:
-                        if oauth_manager.configure_microsoft(tenant_id, client_id_ms, client_secret_ms):
-                            st.success("Configuration sauvegardée")
-                            
-                            # Get auth URL
-                            auth_url = oauth_manager.get_auth_url('microsoft')
-                            if auth_url:
-                                st.markdown(f"[🔗 Autoriser l'accès Office 365]({auth_url})")
-                                st.info("Cliquez sur le lien ci-dessus pour autoriser l'accès")
-                    else:
-                        st.error("Veuillez remplir tous les champs")
-    
-    # Handle OAuth2 callback
-    st.markdown("---")
-    st.subheader("📥 Callback OAuth2")
-    
-    with st.expander("Coller l'URL de callback après autorisation"):
-        callback_url = st.text_input("URL de callback", key="oauth_callback_url")
-
-        col1 = st.columns(1)
-
-        with col1:
-            if st.button("Valider callback Microsoft"):
-                if callback_url:
-                    if oauth_manager.handle_callback('microsoft', callback_url):
-                        st.success("✅ Authentification Microsoft réussie!")
-                        st.rerun()
-                    else:
-                        st.error("Échec de l'authentification")
 
 
 def send_paystub_with_oauth2(employee_data: Dict, pdf_buffer: bytes,

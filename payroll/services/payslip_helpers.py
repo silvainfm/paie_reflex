@@ -5,7 +5,6 @@ Helper functions for payslip validation, editing, and data cleaning
 """
 
 import json
-import streamlit as st
 import polars as pl
 import numpy as np
 import math
@@ -66,7 +65,7 @@ def load_rubrics_from_excel() -> List[Dict]:
 
         return rubrics
     except Exception as e:
-        st.error(f"Erreur lors du chargement des rubriques: {e}")
+        error(f"Erreur lors du chargement des rubriques: {e}") # to replace with reflex error
         return []
 
 def get_salary_rubrics() -> List[Dict]:
@@ -402,7 +401,7 @@ def log_modification(matricule: str, field: str, old_value, new_value, user: str
         'old_value': str(old_value),
         'new_value': str(new_value),
         'reason': reason,
-        'period': st.session_state.current_period,
+        'period': state.current_period,
         'company': st.session_state.current_company
     }
 

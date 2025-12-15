@@ -7,7 +7,6 @@ Main system orchestrator for Monaco payroll processing
 import json
 import logging
 import traceback
-import streamlit as st
 import polars as pl
 from datetime import datetime
 from pathlib import Path
@@ -133,8 +132,7 @@ class IntegratedPayrollSystem:
                 'edge_cases': len(edge_cases)
             })
 
-            st.session_state['processed_data'] = processed_df
-            st.session_state['edge_cases'] = edge_cases
+            # ADD reflex state 
 
             report['success'] = True
             report['end_time'] = datetime.now()

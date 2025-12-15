@@ -1,0 +1,31 @@
+# Core Reflex
+reflex>=0.5.0
+
+# Data processing
+polars>=0.20.0
+duckdb>=0.10.0
+
+# Excel handling
+openpyxl>=3.1.0
+xlsxwriter>=3.1.0
+
+# PDF generation
+reportlab>=4.0.0
+PyPDF2>=3.0.0
+
+# Services (from original app)
+# Note: Copy entire services/ directory from original app
+# The following are already included in services:
+# - auth.py (AuthManager)
+# - data_mgt.py (DataManager)
+# - shared_utils.py
+# - payroll_system.py
+# - excel_import_export.py
+# - pdf_generation.py
+# - edge_case_agent.py
+# - dsm_xml_generator.py
+# - payroll_calculations.py
+# - email_archive.py
+
+# Additional dependencies
+python-dateutil>=2.8.0

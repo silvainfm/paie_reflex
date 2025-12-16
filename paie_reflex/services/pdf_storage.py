@@ -1,13 +1,12 @@
 """
 PDF Storage Service - Handles saving PDFs to various destinations
-Supports: Local filesystem, SFTP
+Supports: Local filesystem, SFTP, S3, Azure Blob, Google Cloud Storage
 """
 
 import json
-import paramiko
 from pathlib import Path
 from dataclasses import dataclass, asdict
-from typing import Optional, BinaryIO
+from typing import Optional, BinaryIO, Literal
 from datetime import datetime
 import logging
 
@@ -15,8 +14,30 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class StorageConfig:
+    """Storage configuration - supports local and SFTP"""
+    storage_type: Literal["local", "sftp"] = "local"
+    enabled: bool = False
+    # Pattern placeholders: {company_id}, {company_name}, {year}, {month}, {type}
+    folder_pattern: str = "{company_name}/{year}/{month}"
+    # Pattern placeholders: {type}, {matricule}, {nom}, {prenom}, {year}, {month}, {timestamp}
+    filename_pattern: str = "{type}_{matricule}_{year}_{month}.pdf"
+
+    # Local storage
+    local_base_path: str = "data/pdfs"
+
+    # SFTP
+    sftp_host: str = ""
+    sftp_port: int = 22
+    sftp_username: str = ""
+    sftp_password: str = ""
+    sftp_private_key_path: str = ""
+    sftp_remote_base_path: str = "/"
+
+
+@dataclass
 class SFTPConfig:
-    """SFTP configuration"""
+    """SFTP configuration (legacy compatibility)"""
     host: str
     port: int = 22
     username: str = ""
@@ -24,9 +45,7 @@ class SFTPConfig:
     private_key_path: Optional[str] = None
     remote_base_path: str = "/"
     enabled: bool = False
-    # Pattern placeholders: {company_id}, {company_name}, {year}, {month}, {type}
     folder_pattern: str = "{company_name}/{year}/{month}"
-    # Pattern placeholders: {type}, {matricule}, {nom}, {prenom}, {year}, {month}, {timestamp}
     filename_pattern: str = "{type}_{matricule}_{year}_{month}.pdf"
 
 
@@ -62,11 +81,44 @@ class SFTPConfigManager:
             return None
 
 
+class StorageConfigManager:
+    """Manage storage configuration"""
+
+    def __init__(self, config_path: Path):
+        self.config_path = config_path
+        self.config_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def save_config(self, config: StorageConfig) -> bool:
+        """Save storage config to JSON"""
+        try:
+            with open(self.config_path, 'w', encoding='utf-8') as f:
+                json.dump(asdict(config), f, indent=2)
+            logger.info(f"Storage config saved to {self.config_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to save storage config: {e}")
+            return False
+
+    def load_config(self) -> Optional[StorageConfig]:
+        """Load storage config from JSON"""
+        if not self.config_path.exists():
+            return StorageConfig()  # Return default config
+
+        try:
+            with open(self.config_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return StorageConfig(**data)
+        except Exception as e:
+            logger.error(f"Failed to load storage config: {e}")
+            return StorageConfig()
+
+
 class PDFStorageService:
     """Service to handle PDF storage to various destinations"""
 
-    def __init__(self, sftp_config: Optional[SFTPConfig] = None):
-        self.sftp_config = sftp_config
+    def __init__(self, config: Optional[StorageConfig] = None, sftp_config: Optional[SFTPConfig] = None):
+        self.config = config or StorageConfig()
+        self.sftp_config = sftp_config  # Legacy compatibility
 
     def save_to_local(self, pdf_buffer: BinaryIO, output_path: Path) -> bool:
         """Save PDF to local filesystem"""
@@ -97,6 +149,8 @@ class PDFStorageService:
             return False
 
         try:
+            import paramiko
+
             # Create SSH client
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -135,11 +189,66 @@ class PDFStorageService:
             logger.info(f"PDF uploaded to SFTP: {remote_path}")
             return True
 
+        except ImportError:
+            logger.error("paramiko not installed. Install with: pip install paramiko")
+            return False
         except Exception as e:
             logger.error(f"Failed to upload PDF to SFTP: {e}")
             return False
 
-    def _create_remote_dirs(self, sftp: paramiko.SFTPClient, remote_path: str):
+    def save_pdf(
+        self,
+        pdf_buffer: BinaryIO,
+        pdf_type: str,
+        company_id: str,
+        company_name: str,
+        year: int,
+        month: int,
+        matricule: str = "",
+        nom: str = "",
+        prenom: str = ""
+    ) -> tuple[bool, str]:
+        """Save PDF to configured destination"""
+
+        if not self.config.enabled:
+            logger.warning("Storage not enabled")
+            return False, "Storage not enabled"
+
+        # Build path/key
+        path_key = self.build_path(
+            pdf_type, company_id, company_name, year, month,
+            matricule, nom, prenom
+        )
+
+        try:
+            if self.config.storage_type == "local":
+                output_path = Path(self.config.local_base_path) / path_key
+                success = self.save_to_local(pdf_buffer, output_path)
+                return success, str(output_path) if success else "Failed to save locally"
+
+            elif self.config.storage_type == "sftp":
+                # Build legacy SFTP config
+                sftp_cfg = SFTPConfig(
+                    host=self.config.sftp_host,
+                    port=self.config.sftp_port,
+                    username=self.config.sftp_username,
+                    password=self.config.sftp_password,
+                    private_key_path=self.config.sftp_private_key_path or None,
+                    remote_base_path=self.config.sftp_remote_base_path,
+                    enabled=True
+                )
+                remote_path = f"{self.config.sftp_remote_base_path.rstrip('/')}/{path_key}"
+                success = self.save_to_sftp(pdf_buffer, remote_path, sftp_cfg)
+                return success, remote_path if success else "Failed to upload to SFTP"
+
+            else:
+                return False, f"Unknown storage type: {self.config.storage_type}"
+
+        except Exception as e:
+            logger.error(f"Failed to save PDF: {e}")
+            return False, str(e)
+
+    def _create_remote_dirs(self, sftp, remote_path: str):
         """Recursively create remote directories"""
         if remote_path == '/' or remote_path == '.':
             return
@@ -157,6 +266,50 @@ class PDFStorageService:
             except Exception as e:
                 logger.warning(f"Could not create remote dir {remote_path}: {e}")
 
+    def build_path(
+        self,
+        pdf_type: str,
+        company_id: str,
+        company_name: str,
+        year: int,
+        month: int,
+        matricule: str = "",
+        nom: str = "",
+        prenom: str = ""
+    ) -> str:
+        """Build storage path/key from patterns"""
+
+        # Clean company name for filesystem
+        clean_company = "".join(c if c.isalnum() or c in (' ', '_', '-') else '_' for c in company_name)
+
+        # Build folder path
+        folder = self.config.folder_pattern.format(
+            company_id=company_id,
+            company_name=clean_company,
+            year=year,
+            month=f"{month:02d}"
+        )
+
+        # Build filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = self.config.filename_pattern.format(
+            type=pdf_type,
+            matricule=matricule,
+            nom=nom,
+            prenom=prenom,
+            year=year,
+            month=f"{month:02d}",
+            timestamp=timestamp
+        )
+
+        # Combine folder and filename
+        full_path = f"{folder}/{filename}"
+
+        # Normalize path separators
+        full_path = full_path.replace('//', '/')
+
+        return full_path
+
     def build_remote_path(
         self,
         config: SFTPConfig,
@@ -169,7 +322,7 @@ class PDFStorageService:
         nom: str = "",
         prenom: str = ""
     ) -> str:
-        """Build remote path from patterns"""
+        """Build remote path from patterns (legacy compatibility)"""
 
         # Clean company name for filesystem
         clean_company = "".join(c if c.isalnum() or c in (' ', '_', '-') else '_' for c in company_name)

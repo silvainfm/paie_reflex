@@ -3,12 +3,8 @@
 import reflex as rx
 from ..state import AuthState, CompanyState, DataState
 from ..components import layout, info_box
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-from services.data_mgt import DataManager
-from services.shared_utils import get_payroll_system
+from ..services.data_mgt import DataManager
+from ..services.import_export import ExcelImportExport
 
 
 class ImportState(rx.State):
@@ -35,25 +31,25 @@ class ImportState(rx.State):
             # Process file
             import polars as pl
             import io
-            
-            system = get_payroll_system()
-            
+
+            excel_manager = ExcelImportExport()
+
             if file.filename.endswith('.csv'):
                 dtypes = {"Matricule": pl.Utf8}
                 df_import = pl.read_csv(io.BytesIO(content), dtypes=dtypes)
-                
+
                 rename_mapping = {
-                    k: v for k, v in system.excel_manager.EXCEL_COLUMN_MAPPING.items()
+                    k: v for k, v in excel_manager.EXCEL_COLUMN_MAPPING.items()
                     if k in df_import.columns
                 }
                 df_import = df_import.rename(rename_mapping)
-                
+
                 if 'matricule' in df_import.columns:
                     df_import = df_import.with_columns(
                         pl.col('matricule').cast(pl.Utf8, strict=False)
                     )
             else:
-                df_import = system.excel_manager.import_from_excel(io.BytesIO(content))
+                df_import = excel_manager.import_from_excel(io.BytesIO(content))
             
             # Check existing employees
             month, year = map(int, company_state.current_period.split('-'))
@@ -101,19 +97,19 @@ class ImportState(rx.State):
     
     def download_template(self):
         """Generate template for download"""
-        system = get_payroll_system()
-        template_buffer = system.excel_manager.create_template()
-        
+        excel_manager = ExcelImportExport()
+        template_buffer = excel_manager.create_template()
+
         company_state = self.get_state(CompanyState)
         filename = f"template_paie_{company_state.current_period}.xlsx"
-        
+
         return rx.download(
             data=template_buffer.getvalue(),
             filename=filename,
         )
 
 
-def page() -> rx.Component:
+def index() -> rx.Component:
     """Import page layout"""
     return layout(
         rx.vstack(

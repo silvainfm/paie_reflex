@@ -3,10 +3,12 @@ import reflex as rx
 from typing import List, Dict
 import zipfile
 from io import BytesIO
-from ..state import GlobalState
+from pathlib import Path
+from ..state import GlobalState, CompanyState
 from ..components import navbar, sidebar_nav
 from ..services.data_mgt import DataManager
 from ..services.pdf_generation import PDFGeneratorService
+from ..services.pdf_storage import PDFStorageService, StorageConfigManager
 
 
 class PDFState(GlobalState):
@@ -25,6 +27,9 @@ class PDFState(GlobalState):
     all_bulletins_data: str = ""
     journal_data: str = ""
     provision_data: str = ""
+
+    # Cloud storage
+    saved_locations: List[str] = []  # Track where PDFs were saved
     
     def load_employees(self):
         """Load employees for PDF generation."""
@@ -82,10 +87,37 @@ class PDFState(GlobalState):
 
             self.progress = 1
 
+            # Save to cloud if configured
+            company_state = self.get_state(CompanyState)
+            config_mgr = StorageConfigManager(Path("data/config/storage_config.json"))
+            storage_config = config_mgr.load_config()
+
+            self.saved_locations = []
+
+            if storage_config and storage_config.enabled:
+                storage_service = PDFStorageService(storage_config)
+                success, location = storage_service.save_pdf(
+                    pdf_buffer,
+                    "bulletin",
+                    company_state.current_company,
+                    company_state.current_company,
+                    year,
+                    month,
+                    matricule=matricule,
+                    nom=emp_data.get('nom', ''),
+                    prenom=emp_data.get('prenom', '')
+                )
+                if success:
+                    self.saved_locations.append(location)
+
             # Convert to base64 for download
             import base64
             self.individual_pdf_data = base64.b64encode(pdf_buffer.getvalue()).decode()
-            self.pdf_status = "✓ Bulletin generated"
+
+            if self.saved_locations:
+                self.pdf_status = f"✓ Bulletin generated & saved to: {self.saved_locations[0]}"
+            else:
+                self.pdf_status = "✓ Bulletin generated"
 
         except Exception as e:
             self.pdf_status = f"Error: {str(e)}"
@@ -109,6 +141,17 @@ class PDFState(GlobalState):
             company_info = {"name": self.current_company, "address": "", "siret": ""}
             pdf_service = PDFGeneratorService(company_info)
 
+            # Check for cloud storage
+            company_state = self.get_state(CompanyState)
+            config_mgr = StorageConfigManager(Path("data/config/storage_config.json"))
+            storage_config = config_mgr.load_config()
+            storage_service = None
+
+            self.saved_locations = []
+
+            if storage_config and storage_config.enabled:
+                storage_service = PDFStorageService(storage_config)
+
             # Create ZIP
             zip_buffer = BytesIO()
             with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
@@ -120,13 +163,33 @@ class PDFState(GlobalState):
                     filename = f"bulletin_{emp_data['matricule']}_{emp_data['nom']}.pdf"
                     zf.writestr(filename, pdf_buffer.getvalue())
 
+                    # Save to cloud if configured
+                    if storage_service:
+                        success, location = storage_service.save_pdf(
+                            pdf_buffer,
+                            "bulletin",
+                            company_state.current_company,
+                            company_state.current_company,
+                            year,
+                            month,
+                            matricule=emp_data.get('matricule', ''),
+                            nom=emp_data.get('nom', ''),
+                            prenom=emp_data.get('prenom', '')
+                        )
+                        if success:
+                            self.saved_locations.append(location)
+
                     # Update progress
                     self.progress = idx + 1
                     self.pdf_status = f"Generating {self.progress}/{self.total_items}..."
 
             import base64
             self.all_bulletins_data = base64.b64encode(zip_buffer.getvalue()).decode()
-            self.pdf_status = f"✓ Generated {self.total_items} bulletins"
+
+            if self.saved_locations:
+                self.pdf_status = f"✓ Generated {self.total_items} bulletins & saved to cloud ({len(self.saved_locations)} files)"
+            else:
+                self.pdf_status = f"✓ Generated {self.total_items} bulletins"
 
         except Exception as e:
             self.pdf_status = f"Error: {str(e)}"

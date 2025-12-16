@@ -3,20 +3,15 @@ import reflex as rx
 from typing import List, Dict
 from ..state import GlobalState, CompanyState
 from ..components import navbar, sidebar_nav
-import sys
-from pathlib import Path
-
-# Services import
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from services.data_mgt import DataManager
-from services.payslip_helpers import (
+from ..services.data_mgt import DataManager
+from ..services.payslip_helpers import (
     recalculate_employee_payslip,
     get_salary_rubrics,
     get_all_available_salary_rubrics,
     load_rubrics_from_excel,
-    get_available_charges
+    get_available_charges_for_employee
 )
-from services.audit import DataAuditLogger
+from ..services.data_mgt import DataAuditLogger
 import polars as pl
 
 
@@ -40,6 +35,11 @@ class ValidationState(GlobalState):
     # Available rubrics and charges for dropdowns
     available_rubrics: List[Dict] = []
     available_charges: List[Dict] = []
+
+    # Rubric management
+    selected_rubric_to_add: str = ""
+    added_rubrics: List[Dict] = []  # Rubrics added in this session
+    removed_rubrics: List[str] = []  # Field names of removed rubrics
 
     def load_employees(self):
         """Load employees for current period from database."""
@@ -89,6 +89,9 @@ class ValidationState(GlobalState):
                 self.modifications = {}
                 self.modification_reason = ""
                 self.active_tab = "salary"
+                self.added_rubrics = []
+                self.removed_rubrics = []
+                self.selected_rubric_to_add = ""
 
                 # Load available rubrics and charges
                 company_state = self.get_state(CompanyState)
@@ -96,9 +99,9 @@ class ValidationState(GlobalState):
 
                 self.available_rubrics = load_rubrics_from_excel()
                 # Get charges not currently displayed
-                from services.payroll_calculations import ChargesSocialesMonaco
+                from ..services.payroll_calculations import ChargesSocialesMonaco
                 all_charges = ChargesSocialesMonaco.get_all_charges(year)
-                self.available_charges = get_available_charges(emp, all_charges)
+                self.available_charges = get_available_charges_for_employee(emp, year, month)
                 break
 
     def close_edit_modal(self):
@@ -108,6 +111,9 @@ class ValidationState(GlobalState):
         self.modifications = {}
         self.modification_reason = ""
         self.selected_employee = {}
+        self.added_rubrics = []
+        self.removed_rubrics = []
+        self.selected_rubric_to_add = ""
 
     def toggle_edit(self):
         """Toggle edit mode."""
@@ -126,6 +132,63 @@ class ValidationState(GlobalState):
     def set_active_tab(self, tab: str):
         """Set active edit tab."""
         self.active_tab = tab
+
+    def set_selected_rubric(self, rubric_label: str):
+        """Set selected rubric to add."""
+        self.selected_rubric_to_add = rubric_label
+
+    def add_rubric(self):
+        """Add selected rubric to employee."""
+        if not self.selected_rubric_to_add:
+            return
+
+        # Find the rubric details
+        for rubric in self.available_rubrics:
+            rubric_display = f"{rubric['label']} ({rubric['field_name']})"
+            if rubric_display == self.selected_rubric_to_add:
+                # Add to added rubrics list with initial value 0
+                self.added_rubrics.append({
+                    'field_name': rubric['field_name'],
+                    'label': rubric['label'],
+                    'value': 0.0
+                })
+
+                # Add to modifications
+                self.modifications[rubric['field_name']] = 0.0
+
+                # Reset selection
+                self.selected_rubric_to_add = ""
+                break
+
+    def remove_rubric(self, field_name: str):
+        """Remove a rubric from employee."""
+        # Add to removed rubrics list
+        if field_name not in self.removed_rubrics:
+            self.removed_rubrics.append(field_name)
+
+        # Set to 0 in modifications
+        self.modifications[field_name] = 0.0
+
+    def update_added_rubric_value(self, field_name: str, value: float):
+        """Update value of an added rubric."""
+        # Update in added_rubrics list
+        for rubric in self.added_rubrics:
+            if rubric['field_name'] == field_name:
+                rubric['value'] = value
+                break
+
+        # Update in modifications
+        self.modifications[field_name] = value
+
+    @rx.var
+    def available_rubrics_for_dropdown(self) -> List[str]:
+        """Get rubric labels for dropdown, excluding already added ones."""
+        added_fields = [r['field_name'] for r in self.added_rubrics]
+        return [
+            f"{r['label']} ({r['field_name']})"
+            for r in self.available_rubrics
+            if r['field_name'] not in added_fields
+        ]
 
     async def recalculate_payslip(self):
         """Recalculate payslip with modifications."""
@@ -160,7 +223,7 @@ class ValidationState(GlobalState):
             self.error_message = "Modification reason required"
             return
 
-        if not self.modifications:
+        if not self.modifications and not self.added_rubrics and not self.removed_rubrics:
             self.error_message = "No modifications to save"
             return
 
@@ -168,6 +231,13 @@ class ValidationState(GlobalState):
         try:
             company_state = self.get_state(CompanyState)
             month, year = map(int, company_state.current_period.split('-'))
+
+            # Prepare audit info for rubric changes
+            audit_info = dict(self.modifications)
+            if self.added_rubrics:
+                audit_info['added_rubrics'] = [r['field_name'] for r in self.added_rubrics]
+            if self.removed_rubrics:
+                audit_info['removed_rubrics'] = self.removed_rubrics
 
             # Recalculate first
             recalculated = recalculate_employee_payslip(
@@ -189,7 +259,7 @@ class ValidationState(GlobalState):
             )
 
             # Log modification
-            from services.auth import AuthManager
+            from ..services.auth import AuthManager
             # Get current user from AuthState
             auth_state = self.get_state(GlobalState)
             user = getattr(auth_state, 'user', 'system')
@@ -200,7 +270,7 @@ class ValidationState(GlobalState):
                 month,
                 matricule,
                 user,
-                self.modifications,
+                audit_info,
                 self.modification_reason
             )
 
@@ -216,6 +286,8 @@ class ValidationState(GlobalState):
             self.modifications = {}
             self.modification_reason = ""
             self.error_message = ""
+            self.added_rubrics = []
+            self.removed_rubrics = []
 
             # Reload employees
             self.load_employees()
@@ -279,6 +351,38 @@ class ValidationState(GlobalState):
     def edge_case_count(self) -> int:
         """Count edge cases."""
         return sum(1 for e in self.employees if e.get("edge_case_flag"))
+
+
+def added_rubric_item(rubric: Dict) -> rx.Component:
+    """Render an added rubric item."""
+    return rx.hstack(
+        rx.text(rubric['label'], width="200px"),
+        rx.cond(
+            ValidationState.edit_mode,
+            rx.input(
+                value=rubric['value'],
+                on_change=lambda v: ValidationState.update_added_rubric_value(rubric['field_name'], float(v)),
+                type="number",
+                step=10,
+                width="150px",
+            ),
+            rx.text(f"{rubric['value']:,.2f} €"),
+        ),
+        rx.cond(
+            ValidationState.edit_mode,
+            rx.button(
+                "Remove",
+                on_click=ValidationState.remove_rubric(rubric['field_name']),
+                variant="soft",
+                color_scheme="red",
+                size="1",
+            ),
+            rx.fragment(),
+        ),
+        spacing="3",
+        align="center",
+        width="100%",
+    )
 
 
 def salary_elements_tab() -> rx.Component:
@@ -474,6 +578,47 @@ def salary_elements_tab() -> rx.Component:
             ),
             columns="4",
             spacing="3",
+        ),
+
+        rx.divider(),
+
+        # Additional Rubrics section
+        rx.heading("Additional Rubrics", size="4", margin_bottom="0.5rem"),
+
+        # Show currently added rubrics
+        rx.cond(
+            ValidationState.added_rubrics.length() > 0,
+            rx.vstack(
+                rx.foreach(
+                    ValidationState.added_rubrics,
+                    added_rubric_item,
+                ),
+                spacing="2",
+                width="100%",
+            ),
+            rx.text("No additional rubrics added", size="2", color="#6c757d"),
+        ),
+
+        # Add new rubric controls
+        rx.cond(
+            ValidationState.edit_mode,
+            rx.hstack(
+                rx.select(
+                    ValidationState.available_rubrics_for_dropdown,
+                    placeholder="Select rubric to add",
+                    value=ValidationState.selected_rubric_to_add,
+                    on_change=ValidationState.set_selected_rubric,
+                    width="300px",
+                ),
+                rx.button(
+                    "Add Rubric",
+                    on_click=ValidationState.add_rubric,
+                    variant="soft",
+                    disabled=ValidationState.selected_rubric_to_add == "",
+                ),
+                spacing="3",
+            ),
+            rx.fragment(),
         ),
 
         spacing="4",

@@ -24,11 +24,11 @@ import sys
 import traceback
 
 # Import main payroll system components
-from services.payroll_calculations import CalculateurPaieMonaco, ValidateurPaieMonaco
-from services.import_export import ExcelImportExport, DataConsolidation
-from services.data_mgt import DataManager
-from services.pdf_generation import PDFGeneratorService
-from services.email_archive import create_email_distribution_system
+from ..services.payroll_calculations import CalculateurPaieMonaco, ValidateurPaieMonaco
+from ..services.import_export import ExcelImportExport, DataConsolidation
+from ..services.data_mgt import DataManager
+from ..services.pdf_generation import PDFGeneratorService
+from ..services.email_archive import create_email_distribution_system
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(

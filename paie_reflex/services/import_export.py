@@ -580,7 +580,7 @@ class ExcelImportExport:
         Returns:
             BytesIO buffer containing Excel file
         """
-        from services.data_mgt import DataManager
+        from ..services.data_mgt import DataManager
 
         # Query only needed columns from DuckDB (memory efficient)
         conn = DataManager.get_connection()

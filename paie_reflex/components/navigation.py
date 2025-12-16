@@ -42,7 +42,7 @@ def navbar() -> rx.Component:
             
             # User info and logout
             rx.hstack(
-                rx.text(GlobalState.name, weight="medium"),
+                rx.text(GlobalState.user, weight="medium"),
                 rx.badge(GlobalState.role, color_scheme="blue"),
                 rx.button(
                     "Logout",

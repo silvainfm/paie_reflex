@@ -84,6 +84,11 @@ class DataManager:
             return []
         finally:
             conn.close()
+
+    @classmethod
+    def get_all_companies(cls) -> List[str]:
+        """Alias for get_companies for backward compatibility."""
+        return cls.get_companies()
     
     @classmethod
     def get_available_period_strings(cls, company_id: str) -> List[str]:

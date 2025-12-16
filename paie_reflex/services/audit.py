@@ -142,25 +142,25 @@ class AuditState(GlobalState):
         self._generate_time_reports(time_df)
     
     @rx.var
-    def available_users(self) -> List[str]:
+    def audit_users(self) -> List[str]:
         """Get list of users from logs."""
         users = set()
         for log in self.all_logs:
             if log.get('user'):
                 users.add(log['user'])
         return ["All"] + sorted(list(users))
-    
+
     @rx.var
-    def available_periods(self) -> List[str]:
+    def audit_periods(self) -> List[str]:
         """Get list of periods from logs."""
         periods = set()
         for log in self.all_logs:
             if log.get('period'):
                 periods.add(log['period'])
         return ["All"] + sorted(list(periods), reverse=True)
-    
+
     @rx.var
-    def available_companies(self) -> List[str]:
+    def audit_companies(self) -> List[str]:
         """Get list of companies from logs."""
         companies = set()
         for log in self.all_logs:
@@ -241,7 +241,7 @@ def index() -> rx.Component:
                                         rx.vstack(
                                             rx.text("User", size="2"),
                                             rx.select(
-                                                AuditState.available_users,
+                                                AuditState.audit_users,
                                                 value=AuditState.user_filter,
                                                 on_change=AuditState.user_filter.set,
                                             ),
@@ -250,7 +250,7 @@ def index() -> rx.Component:
                                         rx.vstack(
                                             rx.text("Period", size="2"),
                                             rx.select(
-                                                AuditState.available_periods,
+                                                AuditState.audit_periods,
                                                 value=AuditState.period_filter,
                                                 on_change=AuditState.period_filter.set,
                                             ),
@@ -259,7 +259,7 @@ def index() -> rx.Component:
                                         rx.vstack(
                                             rx.text("Company", size="2"),
                                             rx.select(
-                                                AuditState.available_companies,
+                                                AuditState.audit_companies,
                                                 value=AuditState.company_filter,
                                                 on_change=AuditState.company_filter.set,
                                             ),

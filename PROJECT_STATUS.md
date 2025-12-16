@@ -74,29 +74,13 @@
 - User management
 - Settings persistence
 
-## 📊 Feature Comparison
+## 📊 Feature to work on
 
 | Feature | Streamlit | Reflex | Status |
 |---------|-----------|--------|--------|
-| Authentication | ✅ | ✅ | Complete |
-| Multi-user | ✅ | ✅ | Complete |
-| Company selection | ✅ | ✅ | Complete |
-| Period selection | ✅ | ✅ | Complete |
-| File upload | ✅ | ✅ | Complete |
-| Excel import | ✅ | ✅ | Complete |
-| Template download | ✅ | ✅ | Complete |
-| Payroll processing | ✅ | ✅ | Complete |
-| Edge case agent | ✅ | ✅ | Complete |
 | Employee validation | ✅ | ⚠️ | Simplified |
 | Employee editing | ✅ | ⚠️ | Basic |
-| Dashboard metrics | ✅ | ✅ | Complete |
-| Trend charts | ✅ | ✅ | Complete |
-| PDF bulletins | ✅ | ✅ | Complete |
-| PDF journal | ✅ | ✅ | Complete |
-| Excel export | ✅ | ✅ | Complete |
-| DSM XML | ✅ | ✅ | Complete |
 | Email sending | ✅ | ❌ | Not impl. |
-| Admin config | ✅ | ✅ | Complete |
 
 ## ⚠️ Simplified/Modified Features
 
@@ -144,7 +128,6 @@
 **Reason:** Complex async email + attachments needs careful design
 
 ## 🚀 Quick Start Checklist
-3. **Create directories**: data/config, data/db, data/consolidated
 4. **Create company_info.json** (see README)
 5. **Add admin user** via AuthManager
 6. **Run**: `reflex run`
@@ -207,7 +190,6 @@
 - Error handling
 - Loading states
 - User feedback
-- Mobile responsive
 
 ## 📈 Next Steps (Priority Order)
 
@@ -224,34 +206,10 @@
 
 ## 💰 Cost Estimate
 
-**Development Time:**
-- MVP (current): ~8-10 hours
-- Full feature parity: +20-30 hours
-- Testing/refinement: +10-15 hours
-- **Total: 40-55 hours**
-
 **Hosting:**
 - Self-hosted: Server cost only
 - Reflex Cloud: ~$20-50/month
 - Hybrid: Dev on cloud, prod self-hosted
-
-## ✨ Reflex Advantages Over Streamlit
-
-1. **Better separation** of concerns (State vs UI)
-2. **Type safety** with Python type hints
-3. **Reactive updates** without reruns
-4. **Component reusability** built-in
-5. **Production-ready** architecture
-6. **Mobile responsive** by default
-7. **Custom styling** easier
-8. **Performance** better with large datasets
-
-## 🎓 Learning Resources
-
-**Reflex Docs:** https://reflex.dev/docs
-**State Management:** https://reflex.dev/docs/state/overview
-**Components:** https://reflex.dev/docs/library
-**Deployment:** https://reflex.dev/docs/hosting/deploy
 
 ## 🤝 Migration Path
 
@@ -263,7 +221,5 @@
 
 ---
 
-**Status:** MVP Complete ✅
 **Next Milestone:** Full employee editing
 **Blockers:** None
-**Timeline:** 2-3 weeks to production-ready

@@ -11,12 +11,15 @@ from ..services.pdf_generation import PDFGeneratorService
 
 class PDFState(GlobalState):
     """State for PDF generation."""
-    
+
     generation_mode: str = "individual"
     selected_employee: str = ""
     employees: List[Dict] = []
     pdf_status: str = ""
-    
+    is_generating: bool = False
+    progress: int = 0
+    total_items: int = 0
+
     # Download triggers
     individual_pdf_data: str = ""
     all_bulletins_data: str = ""
@@ -51,96 +54,138 @@ class PDFState(GlobalState):
         if not self.selected_employee:
             self.pdf_status = "Please select an employee"
             return
-        
+
+        self.is_generating = True
+        self.progress = 0
+        self.total_items = 1
+        self.individual_pdf_data = ""
+
         try:
             month, year = map(int, self.current_period.split('-'))
             df = DataManager.load_period_data(self.current_company, month, year)
-            
+
             # Find employee
             matricule = self.selected_employee.split(' - ')[0]
             emp_df = df.filter(df['matricule'] == matricule)
-            
+
             if emp_df.is_empty():
                 self.pdf_status = "Employee not found"
+                self.is_generating = False
                 return
-            
+
             # Generate PDF
             company_info = {"name": self.current_company, "address": "", "siret": ""}
             pdf_service = PDFGeneratorService(company_info)
-            
+
             emp_data = emp_df.to_dicts()[0]
             pdf_buffer = pdf_service.paystub_gen.generate_paystub(emp_data, self.current_period)
-            
+
+            self.progress = 1
+
             # Convert to base64 for download
             import base64
             self.individual_pdf_data = base64.b64encode(pdf_buffer.getvalue()).decode()
             self.pdf_status = "✓ Bulletin generated"
-            
+
         except Exception as e:
             self.pdf_status = f"Error: {str(e)}"
+        finally:
+            self.is_generating = False
     
     async def generate_all(self):
-        """Generate all bulletins as ZIP."""
+        """Generate all bulletins as ZIP with progress tracking."""
+        self.is_generating = True
+        self.progress = 0
+        self.all_bulletins_data = ""
+        self.pdf_status = "Starting bulk generation..."
+
         try:
             month, year = map(int, self.current_period.split('-'))
             df = DataManager.load_period_data(self.current_company, month, year)
-            
+
+            employee_data = df.to_dicts()
+            self.total_items = len(employee_data)
+
             company_info = {"name": self.current_company, "address": "", "siret": ""}
             pdf_service = PDFGeneratorService(company_info)
-            
-            # Generate all PDFs
-            documents = pdf_service.generate_monthly_documents(df, self.current_period)
-            
+
             # Create ZIP
             zip_buffer = BytesIO()
             with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-                for paystub in documents['paystubs']:
-                    filename = f"bulletin_{paystub['matricule']}_{paystub['nom']}.pdf"
-                    zf.writestr(filename, paystub['buffer'].getvalue())
-            
+                for idx, emp_data in enumerate(employee_data):
+                    # Generate individual paystub
+                    pdf_buffer = pdf_service.paystub_gen.generate_paystub(emp_data, self.current_period)
+
+                    # Add to ZIP
+                    filename = f"bulletin_{emp_data['matricule']}_{emp_data['nom']}.pdf"
+                    zf.writestr(filename, pdf_buffer.getvalue())
+
+                    # Update progress
+                    self.progress = idx + 1
+                    self.pdf_status = f"Generating {self.progress}/{self.total_items}..."
+
             import base64
             self.all_bulletins_data = base64.b64encode(zip_buffer.getvalue()).decode()
-            self.pdf_status = f"✓ Generated {len(documents['paystubs'])} bulletins"
-            
+            self.pdf_status = f"✓ Generated {self.total_items} bulletins"
+
         except Exception as e:
             self.pdf_status = f"Error: {str(e)}"
+        finally:
+            self.is_generating = False
     
     async def generate_journal(self):
         """Generate pay journal."""
+        self.is_generating = True
+        self.journal_data = ""
+
         try:
             month, year = map(int, self.current_period.split('-'))
             df = DataManager.load_period_data(self.current_company, month, year)
-            
+
             company_info = {"name": self.current_company, "address": "", "siret": ""}
             pdf_service = PDFGeneratorService(company_info)
-            
+
             journal_buffer = pdf_service.journal_gen.generate_journal(df.to_dicts(), self.current_period)
-            
+
             import base64
             self.journal_data = base64.b64encode(journal_buffer.getvalue()).decode()
             self.pdf_status = "✓ Journal generated"
-            
+
         except Exception as e:
             self.pdf_status = f"Error: {str(e)}"
+        finally:
+            self.is_generating = False
     
     async def generate_provision_cp(self):
         """Generate PTO provision."""
+        self.is_generating = True
+        self.provision_data = ""
+
         try:
             month, year = map(int, self.current_period.split('-'))
             df = DataManager.load_period_data(self.current_company, month, year)
-            
+
             company_info = {"name": self.current_company, "address": "", "siret": ""}
             pdf_service = PDFGeneratorService(company_info)
-            
+
             provisions_data = pdf_service._prepare_provisions_data(df)
             provision_buffer = pdf_service.pto_gen.generate_provision(provisions_data, self.current_period)
-            
+
             import base64
             self.provision_data = base64.b64encode(provision_buffer.getvalue()).decode()
             self.pdf_status = "✓ PTO provision generated"
-            
+
         except Exception as e:
             self.pdf_status = f"Error: {str(e)}"
+        finally:
+            self.is_generating = False
+
+    @rx.var
+    def progress_percentage(self) -> int:
+        """Calculate progress percentage."""
+        if self.total_items == 0:
+            return 0
+        return int((self.progress / self.total_items) * 100)
 
 
 def index() -> rx.Component:
@@ -195,9 +240,18 @@ def index() -> rx.Component:
                                             on_change=PDFState.selected_employee.set,
                                         ),
                                         rx.button(
-                                            "Generate Individual",
+                                            rx.cond(
+                                                PDFState.is_generating,
+                                                rx.hstack(
+                                                    rx.spinner(size="3"),
+                                                    rx.text("Generating..."),
+                                                    spacing="2",
+                                                ),
+                                                rx.text("Generate Individual"),
+                                            ),
                                             on_click=PDFState.generate_individual,
                                             size="3",
+                                            disabled=PDFState.is_generating,
                                         ),
                                         rx.cond(
                                             PDFState.individual_pdf_data,
@@ -212,9 +266,37 @@ def index() -> rx.Component:
                                     ),
                                     rx.vstack(
                                         rx.button(
-                                            "Generate All Bulletins",
+                                            rx.cond(
+                                                PDFState.is_generating,
+                                                rx.hstack(
+                                                    rx.spinner(size="3"),
+                                                    rx.text("Generating..."),
+                                                    spacing="2",
+                                                ),
+                                                rx.text("Generate All Bulletins"),
+                                            ),
                                             on_click=PDFState.generate_all,
                                             size="3",
+                                            disabled=PDFState.is_generating,
+                                        ),
+                                        # Progress bar for bulk generation
+                                        rx.cond(
+                                            PDFState.is_generating & (PDFState.total_items > 0),
+                                            rx.vstack(
+                                                rx.progress(
+                                                    value=PDFState.progress_percentage,
+                                                    max=100,
+                                                    width="100%",
+                                                ),
+                                                rx.text(
+                                                    f"{PDFState.progress}/{PDFState.total_items} bulletins ({PDFState.progress_percentage}%)",
+                                                    size="2",
+                                                    color="#6c757d",
+                                                ),
+                                                spacing="2",
+                                                width="100%",
+                                            ),
+                                            rx.fragment(),
                                         ),
                                         rx.cond(
                                             PDFState.all_bulletins_data,
@@ -239,9 +321,18 @@ def index() -> rx.Component:
                             rx.vstack(
                                 rx.heading("Generate Pay Journal", size="6"),
                                 rx.button(
-                                    "Generate Journal",
+                                    rx.cond(
+                                        PDFState.is_generating,
+                                        rx.hstack(
+                                            rx.spinner(size="3"),
+                                            rx.text("Generating..."),
+                                            spacing="2",
+                                        ),
+                                        rx.text("Generate Journal"),
+                                    ),
                                     on_click=PDFState.generate_journal,
                                     size="3",
+                                    disabled=PDFState.is_generating,
                                 ),
                                 rx.cond(
                                     PDFState.journal_data,
@@ -263,9 +354,18 @@ def index() -> rx.Component:
                                 rx.heading("Generate PTO Provision", size="6"),
                                 rx.text("Calculates accrued leave provision with 45% social charges", size="2", color="#6c757d"),
                                 rx.button(
-                                    "Generate Provision",
+                                    rx.cond(
+                                        PDFState.is_generating,
+                                        rx.hstack(
+                                            rx.spinner(size="3"),
+                                            rx.text("Generating..."),
+                                            spacing="2",
+                                        ),
+                                        rx.text("Generate Provision"),
+                                    ),
                                     on_click=PDFState.generate_provision_cp,
                                     size="3",
+                                    disabled=PDFState.is_generating,
                                 ),
                                 rx.cond(
                                     PDFState.provision_data,

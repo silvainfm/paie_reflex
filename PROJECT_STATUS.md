@@ -144,9 +144,6 @@
 **Reason:** Complex async email + attachments needs careful design
 
 ## 🚀 Quick Start Checklist
-
-1. **Copy services/ directory** from Streamlit app
-2. **Install dependencies**: `pip install -r requirements.txt`
 3. **Create directories**: data/config, data/db, data/consolidated
 4. **Create company_info.json** (see README)
 5. **Add admin user** via AuthManager

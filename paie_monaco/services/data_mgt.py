@@ -178,6 +178,38 @@ class DataManager:
             conn.close()
     
     @classmethod
+    def get_cumul_brut_annuel(cls, company_id: str, matricule: str, year: int, current_month: int) -> float:
+        """
+        Get cumulative annual gross salary for employee (January to current_month-1)
+        Used for annual plafond calculations
+        
+        Args:
+            company_id: Company identifier
+            matricule: Employee ID
+            year: Current year
+            current_month: Current month (1-12)
+            
+        Returns:
+            Sum of salaire_brut from January to current_month-1
+        """
+        conn = cls._get_connection()
+        try:
+            result = conn.execute("""
+                SELECT COALESCE(SUM(salaire_brut), 0) as cumul
+                FROM payroll_data
+                WHERE company_id = ? 
+                  AND matricule = ?
+                  AND period_year = ?
+                  AND period_month < ?
+            """, [company_id, matricule, year, current_month]).fetchone()
+            
+            return float(result[0]) if result else 0.0
+        except:
+            return 0.0
+        finally:
+            conn.close()
+    
+    @classmethod
     def get_company_details(cls, company_id: str) -> Optional[Dict]:
         """Get company details."""
         conn = cls._get_connection()

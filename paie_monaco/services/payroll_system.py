@@ -12,22 +12,22 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict
 
-from services.payroll_calculations import (
+from .payroll_calculations import (
     CalculateurPaieMonaco,
     ValidateurPaieMonaco,
     GestionnaireCongesPayes
 )
-from services.import_export import ExcelImportExport, DataConsolidation
-from services.data_mgt import DataManager
+from .import_export import ExcelImportExport, DataConsolidation
+from .data_mgt import DataManager
 
 logger = logging.getLogger(__name__)
 
 
 class IntegratedPayrollSystem:
-    """Système intégré de gestion de paie"""
+    """Integrated payroll management system"""
 
     def __init__(self, config_dir: Path = None):
-        """Initialiser le système complet"""
+        """Initialize the complete system"""
         self.config_dir = config_dir or Path("data/config")
         self.calculator = CalculateurPaieMonaco()
         self.validator = ValidateurPaieMonaco()
@@ -37,7 +37,7 @@ class IntegratedPayrollSystem:
         self.company_info = self._load_company_info()
 
     def _load_company_info(self) -> Dict:
-        """Charger les informations de l'entreprise"""
+        """Load company information"""
         config_file = self.config_dir / "company_info.json"
 
         if config_file.exists():
@@ -52,7 +52,6 @@ class IntegratedPayrollSystem:
             'email': 'contact@cabinet.mc'
         }
 
-        # Create config directory if it doesn't exist
         self.config_dir.mkdir(parents=True, exist_ok=True)
 
         with open(config_file, 'w', encoding='utf-8') as f:
@@ -61,7 +60,7 @@ class IntegratedPayrollSystem:
         return default_info
 
     def process_monthly_payroll(self, company_id: str, period: str) -> Dict:
-        """Traiter la paie mensuelle complète"""
+        """Process complete monthly payroll"""
         report = {
             'period': period,
             'company_id': company_id,
@@ -74,11 +73,11 @@ class IntegratedPayrollSystem:
             df = DataManager.load_period_data(company_id, month, year)
 
             if df.is_empty():
-                report['error'] = "Aucune donnée trouvée pour cette période"
+                report['error'] = "No data found for this period"
                 return report
 
             report['steps'].append({
-                'step': 'Chargement des données',
+                'step': 'Data loading',
                 'status': 'success',
                 'count': len(df)
             })
@@ -86,15 +85,18 @@ class IntegratedPayrollSystem:
             processed_data = []
             edge_cases = []
 
-            # Convert to list of dicts for processing
+            # Process each employee
             for row in df.iter_rows(named=True):
-                # Get cumulative annual gross salary for plafond calculations
+                # Get cumulative annual gross for plafond calculations
                 matricule = row.get('matricule', '')
                 cumul_brut_annuel = DataManager.get_cumul_brut_annuel(
                     company_id, matricule, year, month
                 ) if matricule else 0.0
 
-                payslip = self.calculator.process_employee_payslip(row, cumul_brut_annuel=cumul_brut_annuel)
+                payslip = self.calculator.process_employee_payslip(
+                    row, 
+                    cumul_brut_annuel=cumul_brut_annuel
+                )
                 is_valid, issues = self.validator.validate_payslip(payslip)
 
                 if not is_valid or row.get('remarques') or row.get('date_sortie'):
@@ -125,14 +127,12 @@ class IntegratedPayrollSystem:
             DataManager.save_period_data(processed_df, company_id, month, year)
 
             report['steps'].append({
-                'step': 'Calcul des paies',
+                'step': 'Payroll calculation',
                 'status': 'success',
                 'processed': len(processed_data),
                 'validated': len(processed_data) - len(edge_cases),
                 'edge_cases': len(edge_cases)
             })
-
-            # ADD reflex state 
 
             report['success'] = True
             report['end_time'] = datetime.now()
@@ -141,7 +141,7 @@ class IntegratedPayrollSystem:
         except Exception as e:
             report['error'] = str(e)
             report['success'] = False
-            logger.error(f"Erreur traitement paie: {e}")
+            logger.error(f"Payroll processing error: {e}")
             logger.error(traceback.format_exc())
 
         return report

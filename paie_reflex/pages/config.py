@@ -4,7 +4,7 @@ from typing import List, Dict
 from ..state import GlobalState
 from ..components import navbar, sidebar_nav
 from ..services.pdf_storage import StorageConfig, StorageConfigManager
-
+from pathlib import Path
 
 class ConfigState(GlobalState):
     """State for configuration page."""
@@ -38,7 +38,51 @@ class ConfigState(GlobalState):
     filename_pattern: str = "{type}_{matricule}_{year}_{month}.pdf"
 
     config_status: str = ""
-    
+
+    # Setter methods for all fields
+    def set_address(self, value):
+        self.address = value
+    def set_company_name(self, value):
+        self.company_name = value
+    def set_email(self, value):
+        self.email = value
+    def set_employer_number(self, value):
+        self.employer_number = value
+    def set_filename_pattern(self, value):
+        self.filename_pattern = value
+    def set_folder_pattern(self, value):
+        self.folder_pattern = value
+    def set_local_base_path(self, value):
+        self.local_base_path = value
+    def set_new_name(self, value):
+        self.new_name = value
+    def set_new_password(self, value):
+        self.new_password = value
+    def set_new_role(self, value):
+        self.new_role = value
+    def set_new_username(self, value):
+        self.new_username = value
+    def set_phone(self, value):
+        self.phone = value
+    def set_sftp_host(self, value):
+        self.sftp_host = value
+    def set_sftp_password(self, value):
+        self.sftp_password = value
+    def set_sftp_port(self, value):
+        self.sftp_port = value
+    def set_sftp_private_key_path(self, value):
+        self.sftp_private_key_path = value
+    def set_sftp_remote_base_path(self, value):
+        self.sftp_remote_base_path = value
+    def set_sftp_username(self, value):
+        self.sftp_username = value
+    def set_siret(self, value):
+        self.siret = value
+    def set_storage_enabled(self, value):
+        self.storage_enabled = value
+    def set_storage_type(self, value):
+        self.storage_type = value
+
     def load_config(self):
         """Load configuration."""
         # Load company info and users
@@ -66,12 +110,12 @@ class ConfigState(GlobalState):
     
     def save_company_info(self):
         """Save company information."""
-        self.config_status = "Company info saved"
-    
+        self.config_status = "Informations société enregistrées"
+
     def add_user(self):
         """Add new user."""
         if not self.new_username or not self.new_password:
-            self.config_status = "Username and password required"
+            self.config_status = "Nom d'utilisateur et mot de passe requis"
             return
 
         self.users.append({
@@ -79,7 +123,7 @@ class ConfigState(GlobalState):
             "name": self.new_name,
             "role": self.new_role,
         })
-        self.config_status = f"User {self.new_username} added"
+        self.config_status = f"Utilisateur {self.new_username} ajouté"
         self.new_username = ""
         self.new_password = ""
         self.new_name = ""
@@ -103,57 +147,57 @@ class ConfigState(GlobalState):
 
             config_mgr = StorageConfigManager(Path("data/config/storage_config.json"))
             if config_mgr.save_config(storage_config):
-                self.config_status = "Storage configuration saved successfully"
+                self.config_status = "Configuration de stockage enregistrée avec succès"
             else:
-                self.config_status = "Failed to save storage configuration"
+                self.config_status = "Échec de l'enregistrement de la configuration de stockage"
         except Exception as e:
-            self.config_status = f"Error saving storage config: {str(e)}"
+            self.config_status = f"Erreur lors de l'enregistrement de la config de stockage: {str(e)}"
 
 
 def storage_tab_content() -> rx.Component:
     """Storage configuration tab content."""
     return rx.vstack(
-        rx.heading("PDF Storage Configuration", size="6"),
-        rx.text("Configure where generated PDFs will be saved", size="2", color="#6c757d"),
+        rx.heading("Configuration stockage PDF", size="6"),
+        rx.text("Configurer l'emplacement de sauvegarde des PDF générés", size="2", color="#6c757d"),
 
         # Enable storage toggle
         rx.hstack(
             rx.switch(
                 checked=ConfigState.storage_enabled,
-                on_change=ConfigState.storage_enabled.set,
+                on_change=ConfigState.set_storage_enabled,
             ),
-            rx.text("Enable automatic PDF storage", weight="bold"),
+            rx.text("Activer le stockage automatique des PDF", weight="bold"),
             spacing="3",
         ),
 
         # Storage type selection
         rx.vstack(
-            rx.text("Storage Type", weight="bold"),
+            rx.text("Type de stockage", weight="bold"),
             rx.select(
                 ["local", "sftp"],
                 value=ConfigState.storage_type,
-                on_change=ConfigState.storage_type.set,
+                on_change=ConfigState.set_storage_type,
             ),
             spacing="2",
         ),
 
         # Path patterns
         rx.vstack(
-            rx.text("Folder Pattern", weight="bold"),
-            rx.text("Placeholders: {company_name}, {company_id}, {year}, {month}", size="1", color="#6c757d"),
+            rx.text("Modèle de dossier", weight="bold"),
+            rx.text("Variables: {company_name}, {company_id}, {year}, {month}", size="1", color="#6c757d"),
             rx.input(
                 value=ConfigState.folder_pattern,
-                on_change=ConfigState.folder_pattern.set,
+                on_change=ConfigState.set_folder_pattern,
             ),
             spacing="1",
         ),
 
         rx.vstack(
-            rx.text("Filename Pattern", weight="bold"),
-            rx.text("Placeholders: {type}, {matricule}, {nom}, {prenom}, {year}, {month}, {timestamp}", size="1", color="#6c757d"),
+            rx.text("Modèle de nom de fichier", weight="bold"),
+            rx.text("Variables: {type}, {matricule}, {nom}, {prenom}, {year}, {month}, {timestamp}", size="1", color="#6c757d"),
             rx.input(
                 value=ConfigState.filename_pattern,
-                on_change=ConfigState.filename_pattern.set,
+                on_change=ConfigState.set_filename_pattern,
             ),
             spacing="1",
         ),
@@ -163,11 +207,11 @@ def storage_tab_content() -> rx.Component:
             ConfigState.storage_type == "local",
             rx.vstack(
                 rx.divider(),
-                rx.heading("Local Storage", size="5"),
+                rx.heading("Stockage local", size="5"),
                 rx.input(
-                    placeholder="Base path (e.g., data/pdfs)",
+                    placeholder="Chemin de base (ex: data/pdfs)",
                     value=ConfigState.local_base_path,
-                    on_change=ConfigState.local_base_path.set,
+                    on_change=ConfigState.set_local_base_path,
                 ),
                 spacing="3",
             ),
@@ -179,14 +223,14 @@ def storage_tab_content() -> rx.Component:
             ConfigState.storage_type == "sftp",
             rx.vstack(
                 rx.divider(),
-                rx.heading("SFTP Configuration", size="5"),
+                rx.heading("Configuration SFTP", size="5"),
                 rx.vstack(
-                    rx.input(placeholder="Host (e.g., sftp.example.com)", value=ConfigState.sftp_host, on_change=ConfigState.sftp_host.set),
-                    rx.input(placeholder="Port (default: 22)", type="number", value=ConfigState.sftp_port, on_change=ConfigState.sftp_port.set),
-                    rx.input(placeholder="Username", value=ConfigState.sftp_username, on_change=ConfigState.sftp_username.set),
-                    rx.input(placeholder="Password", type="password", value=ConfigState.sftp_password, on_change=ConfigState.sftp_password.set),
-                    rx.input(placeholder="Private Key Path (optional)", value=ConfigState.sftp_private_key_path, on_change=ConfigState.sftp_private_key_path.set),
-                    rx.input(placeholder="Remote base path (e.g., /uploads/pdfs)", value=ConfigState.sftp_remote_base_path, on_change=ConfigState.sftp_remote_base_path.set),
+                    rx.input(placeholder="Hôte (ex: sftp.example.com)", value=ConfigState.sftp_host, on_change=ConfigState.set_sftp_host),
+                    rx.input(placeholder="Port (défaut: 22)", type="number", value=ConfigState.sftp_port, on_change=ConfigState.set_sftp_port),
+                    rx.input(placeholder="Nom d'utilisateur", value=ConfigState.sftp_username, on_change=ConfigState.set_sftp_username),
+                    rx.input(placeholder="Mot de passe", type="password", value=ConfigState.sftp_password, on_change=ConfigState.set_sftp_password),
+                    rx.input(placeholder="Chemin clé privée (optionnel)", value=ConfigState.sftp_private_key_path, on_change=ConfigState.set_sftp_private_key_path),
+                    rx.input(placeholder="Chemin distant de base (ex: /uploads/pdfs)", value=ConfigState.sftp_remote_base_path, on_change=ConfigState.set_sftp_remote_base_path),
                     spacing="3",
                 ),
                 spacing="3",
@@ -194,7 +238,7 @@ def storage_tab_content() -> rx.Component:
             rx.fragment(),
         ),
 
-        rx.button("Save Storage Configuration", on_click=ConfigState.save_storage_config, size="3"),
+        rx.button("Enregistrer la configuration de stockage", on_click=ConfigState.save_storage_config, size="3"),
 
         spacing="4",
         width="100%",
@@ -211,107 +255,107 @@ def index() -> rx.Component:
                 rx.cond(
                     ~GlobalState.is_admin,
                     rx.callout(
-                        "Admin access required",
+                        "Accès administrateur requis",
                         icon="lock",
                         color_scheme="red",
                     ),
                     rx.vstack(
                         rx.heading("Configuration", size="8", margin_bottom="1rem"),
-                        
+
                         rx.tabs.root(
                             rx.tabs.list(
-                                rx.tabs.trigger("Company", value="company"),
-                                rx.tabs.trigger("Users", value="users"),
-                                rx.tabs.trigger("PDF Storage", value="storage"),
+                                rx.tabs.trigger("Société", value="company"),
+                                rx.tabs.trigger("Utilisateurs", value="users"),
+                                rx.tabs.trigger("Stockage PDF", value="storage"),
                             ),
-                            
+
                             rx.tabs.content(
                                 rx.vstack(
-                                    rx.heading("Company Information", size="6"),
-                                    
+                                    rx.heading("Informations société", size="6"),
+
                                     rx.form(
                                         rx.vstack(
                                             rx.input(
-                                                placeholder="Company Name",
+                                                placeholder="Nom de la société",
                                                 value=ConfigState.company_name,
-                                                on_change=ConfigState.company_name.set,
+                                                on_change=ConfigState.set_company_name,
                                             ),
                                             rx.input(
                                                 placeholder="SIRET",
                                                 value=ConfigState.siret,
-                                                on_change=ConfigState.siret.set,
+                                                on_change=ConfigState.set_siret,
                                             ),
                                             rx.text_area(
-                                                placeholder="Address",
+                                                placeholder="Adresse",
                                                 value=ConfigState.address,
-                                                on_change=ConfigState.address.set,
+                                                on_change=ConfigState.set_address,
                                             ),
                                             rx.input(
-                                                placeholder="Phone",
+                                                placeholder="Téléphone",
                                                 value=ConfigState.phone,
-                                                on_change=ConfigState.phone.set,
+                                                on_change=ConfigState.set_phone,
                                             ),
                                             rx.input(
                                                 placeholder="Email",
                                                 value=ConfigState.email,
-                                                on_change=ConfigState.email.set,
+                                                on_change=ConfigState.set_email,
                                             ),
                                             rx.input(
-                                                placeholder="Monaco Employer Number",
+                                                placeholder="Numéro employeur Monaco",
                                                 value=ConfigState.employer_number,
-                                                on_change=ConfigState.employer_number.set,
+                                                on_change=ConfigState.set_employer_number,
                                             ),
-                                            rx.button("Save", on_click=ConfigState.save_company_info),
+                                            rx.button("Enregistrer", on_click=ConfigState.save_company_info),
                                             spacing="4",
                                         ),
                                     ),
-                                    
+
                                     spacing="4",
                                 ),
                                 value="company",
                             ),
-                            
+
                             rx.tabs.content(
                                 rx.vstack(
-                                    rx.heading("User Management", size="6"),
-                                    
-                                    rx.heading("Current Users", size="5"),
+                                    rx.heading("Gestion des utilisateurs", size="6"),
+
+                                    rx.heading("Utilisateurs actuels", size="5"),
                                     rx.data_table(
                                         data=ConfigState.users,
                                         columns=["username", "name", "role"],
                                     ),
-                                    
+
                                     rx.divider(),
-                                    
-                                    rx.heading("Add User", size="5"),
+
+                                    rx.heading("Ajouter un utilisateur", size="5"),
                                     rx.form(
                                         rx.vstack(
                                             rx.input(
-                                                placeholder="Username",
+                                                placeholder="Nom d'utilisateur",
                                                 value=ConfigState.new_username,
-                                                on_change=ConfigState.new_username.set,
+                                                on_change=ConfigState.set_new_username,
                                             ),
                                             rx.input(
-                                                placeholder="Name",
+                                                placeholder="Nom",
                                                 value=ConfigState.new_name,
-                                                on_change=ConfigState.new_name.set,
+                                                on_change=ConfigState.set_new_name,
                                             ),
                                             rx.input(
-                                                placeholder="Password",
+                                                placeholder="Mot de passe",
                                                 type="password",
                                                 value=ConfigState.new_password,
-                                                on_change=ConfigState.new_password.set,
+                                                on_change=ConfigState.set_new_password,
                                             ),
                                             rx.select(
                                                 ["comptable", "admin"],
                                                 value=ConfigState.new_role,
-                                                on_change=ConfigState.new_role.set,
+                                                on_change=ConfigState.set_new_role,
                                             ),
-                                            rx.button("Add User", on_click=ConfigState.add_user),
+                                            rx.button("Ajouter utilisateur", on_click=ConfigState.add_user),
                                             spacing="4",
                                         ),
                                     ),
-                                    
+
                                     spacing="4",
                                 ),
                                 value="users",

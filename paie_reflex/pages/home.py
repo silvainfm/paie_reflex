@@ -3,30 +3,29 @@ import reflex as rx
 from ..state import GlobalState
 from ..components import navbar, sidebar_nav
 
-
 def login() -> rx.Component:
     """Login page."""
     return rx.center(
         rx.card(
             rx.vstack(
                 rx.heading("Monaco Payroll", size="8", weight="bold"),
-                rx.text("Sign in to continue", size="3", color="#6c757d"),
+                rx.text("Connectez-vous pour continuer", size="3", color="#6c757d"),
                 
                 rx.form(
                     rx.vstack(
                         rx.input(
-                            placeholder="Username",
+                            placeholder="Nom d'utilisateur",
                             name="username",
                             required=True,
                         ),
                         rx.input(
-                            placeholder="Password",
+                            placeholder="Mot de passe",
                             name="password",
                             type="password",
                             required=True,
                         ),
                         rx.button(
-                            "Sign In",
+                            "Se connecter",
                             type="submit",
                             width="100%",
                         ),
@@ -41,7 +40,7 @@ def login() -> rx.Component:
                     GlobalState.login_error,
                     rx.callout(
                         GlobalState.login_error,
-                        icon="alert-circle",
+                        icon="alert_circle",
                         color_scheme="red",
                     ),
                     rx.fragment(),
@@ -66,9 +65,9 @@ def index() -> rx.Component:
             sidebar_nav(),
             rx.box(
                 rx.vstack(
-                    rx.heading("Monaco Payroll System", size="8"),
+                    rx.heading("Système de paie Monaco", size="8"),
                     rx.text(
-                        "Modern payroll processing for Monaco businesses",
+                        "Traitement moderne de la paie pour les entreprises monégasques",
                         size="4",
                         color="#6c757d",
                     ),
@@ -78,11 +77,11 @@ def index() -> rx.Component:
                     rx.cond(
                         GlobalState.has_selection,
                         rx.vstack(
-                            rx.heading("Current Selection", size="6"),
+                            rx.heading("Sélection actuelle", size="6"),
                             rx.grid(
                                 rx.box(
                                     rx.vstack(
-                                        rx.text("Company", size="2", color="#6c757d"),
+                                        rx.text("Société", size="2", color="#6c757d"),
                                         rx.text(GlobalState.current_company, size="5", weight="bold"),
                                         spacing="2",
                                     ),
@@ -92,7 +91,7 @@ def index() -> rx.Component:
                                 ),
                                 rx.box(
                                     rx.vstack(
-                                        rx.text("Period", size="2", color="#6c757d"),
+                                        rx.text("Période", size="2", color="#6c757d"),
                                         rx.text(GlobalState.current_period, size="5", weight="bold"),
                                         spacing="2",
                                     ),
@@ -106,22 +105,22 @@ def index() -> rx.Component:
                             spacing="4",
                         ),
                         rx.callout(
-                            "Please select a company and period to continue",
+                            "Veuillez sélectionner une société et une période pour continuer",
                             icon="info",
                             color_scheme="blue",
                         ),
                     ),
                     
                     rx.divider(),
-                    
-                    rx.heading("Quick Actions", size="6"),
+
+                    rx.heading("Actions rapides", size="6"),
                     rx.grid(
                         rx.link(
                             rx.card(
                                 rx.vstack(
                                     rx.icon("upload", size=32),
-                                    rx.heading("Import Data", size="4"),
-                                    rx.text("Upload Excel/CSV files", size="2"),
+                                    rx.heading("Importer des données", size="4"),
+                                    rx.text("Télécharger des fichiers Excel/CSV", size="2"),
                                     spacing="3",
                                 ),
                             ),
@@ -131,8 +130,8 @@ def index() -> rx.Component:
                             rx.card(
                                 rx.vstack(
                                     rx.icon("settings", size=32),
-                                    rx.heading("Process Payroll", size="4"),
-                                    rx.text("Calculate salaries", size="2"),
+                                    rx.heading("Traiter la paie", size="4"),
+                                    rx.text("Calculer les salaires", size="2"),
                                     spacing="3",
                                 ),
                             ),
@@ -143,7 +142,7 @@ def index() -> rx.Component:
                                 rx.vstack(
                                     rx.icon("bar-chart-2", size=32),
                                     rx.heading("Dashboard", size="4"),
-                                    rx.text("View reports", size="2"),
+                                    rx.text("Voir les rapports", size="2"),
                                     spacing="3",
                                 ),
                             ),

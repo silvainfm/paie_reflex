@@ -53,7 +53,7 @@ def index() -> rx.Component:
                     rx.cond(
                         ~GlobalState.has_selection,
                         rx.callout(
-                            "Select company and period first",
+                            "Sélectionnez d'abord une société et une période",
                             icon="alert-circle",
                             color_scheme="red",
                         ),
@@ -64,7 +64,7 @@ def index() -> rx.Component:
                     rx.grid(
                         rx.box(
                             rx.vstack(
-                                rx.text("EMPLOYEES", size="2", color="#6c757d", weight="medium"),
+                                rx.text("EMPLOYÉS", size="2", color="#6c757d", weight="medium"),
                                 rx.text(DashboardState.employee_count, size="6", weight="bold"),
                                 spacing="2",
                             ),
@@ -75,7 +75,7 @@ def index() -> rx.Component:
                         ),
                         rx.box(
                             rx.vstack(
-                                rx.text("GROSS PAYROLL", size="2", color="#6c757d", weight="medium"),
+                                rx.text("MASSE SALARIALE BRUTE", size="2", color="#6c757d", weight="medium"),
                                 rx.text(f"{DashboardState.total_brut:,.0f} €", size="6", weight="bold"),
                                 spacing="2",
                             ),
@@ -86,7 +86,7 @@ def index() -> rx.Component:
                         ),
                         rx.box(
                             rx.vstack(
-                                rx.text("TO VERIFY", size="2", color="#6c757d", weight="medium"),
+                                rx.text("À VÉRIFIER", size="2", color="#6c757d", weight="medium"),
                                 rx.text(DashboardState.edge_cases, size="6", weight="bold", color="orange"),
                                 spacing="2",
                             ),
@@ -97,7 +97,7 @@ def index() -> rx.Component:
                         ),
                         rx.box(
                             rx.vstack(
-                                rx.text("VALIDATED", size="2", color="#6c757d", weight="medium"),
+                                rx.text("VALIDÉS", size="2", color="#6c757d", weight="medium"),
                                 rx.text(
                                     f"{DashboardState.validated}/{DashboardState.employee_count}",
                                     size="6",
@@ -116,8 +116,8 @@ def index() -> rx.Component:
                     ),
                     
                     rx.divider(),
-                    
-                    rx.heading("Salary Trends (6 months)", size="6"),
+
+                    rx.heading("Évolution des salaires (6 mois)", size="6"),
                     
                     rx.cond(
                         DashboardState.trend_data,
@@ -137,7 +137,7 @@ def index() -> rx.Component:
                             width="100%",
                             height=300,
                         ),
-                        rx.text("No trend data available", color="#6c757d"),
+                        rx.text("Aucune donnée de tendance disponible", color="#6c757d"),
                     ),
                     
                     spacing="5",

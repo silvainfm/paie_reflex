@@ -18,10 +18,10 @@ class ImportState(rx.State):
         """Handle file upload"""
         if not files:
             return
-        
+
         company_state = await self.get_state(CompanyState)
         if not company_state.current_company or not company_state.current_period:
-            self.upload_status = "Select company and period first"
+            self.upload_status = "Sélectionnez d'abord une société et une période"
             return
         
         try:
@@ -114,27 +114,28 @@ def index() -> rx.Component:
     return layout(
         rx.vstack(
             rx.heading("📥 Import des données", size="7"),
-            
+
+
             info_box(
                 "Template Excel",
-                "Download the template to import payroll data correctly formatted",
+                "Téléchargez le modèle pour importer les données de paie correctement formatées",
                 "download",
             ),
             
             rx.button(
-                "📥 Download Template",
+                "📥 Télécharger le modèle",
                 on_click=ImportState.download_template,
                 size="3",
             ),
-            
+
             rx.divider(),
-            
-            rx.heading("Upload Data", size="5"),
+
+            rx.heading("Télécharger les données", size="5"),
             
             rx.upload(
                 rx.vstack(
-                    rx.button("Select File", size="3"),
-                    rx.text("Excel or CSV", size="2", color="gray"),
+                    rx.button("Sélectionner un fichier", size="3"),
+                    rx.text("Excel ou CSV", size="2", color="gray"),
                 ),
                 id="upload1",
                 accept={
@@ -157,7 +158,7 @@ def index() -> rx.Component:
             rx.cond(
                 ImportState.show_summary,
                 rx.vstack(
-                    rx.heading("Import Summary", size="4"),
+                    rx.heading("Résumé de l'import", size="4"),
                     rx.hstack(
                         rx.box(
                             rx.vstack(
@@ -170,7 +171,7 @@ def index() -> rx.Component:
                         ),
                         rx.box(
                             rx.vstack(
-                                rx.text("New", size="2", color="gray"),
+                                rx.text("Nouveaux", size="2", color="gray"),
                                 rx.heading(
                                     ImportState.import_summary.get('new', 0),
                                     color="green",
@@ -182,7 +183,7 @@ def index() -> rx.Component:
                         ),
                         rx.box(
                             rx.vstack(
-                                rx.text("Existing", size="2", color="gray"),
+                                rx.text("Existants", size="2", color="gray"),
                                 rx.heading(
                                     ImportState.import_summary.get('existing', 0),
                                     color="orange",
@@ -195,7 +196,7 @@ def index() -> rx.Component:
                         spacing="4",
                     ),
                     rx.button(
-                        "💾 Save Data",
+                        "💾 Enregistrer les données",
                         on_click=ImportState.save_data,
                         size="3",
                         color_scheme="green",
@@ -208,5 +209,4 @@ def index() -> rx.Component:
             spacing="6",
             width="100%",
         ),
-        AuthState,
     )

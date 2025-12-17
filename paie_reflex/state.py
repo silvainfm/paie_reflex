@@ -31,7 +31,7 @@ class GlobalState(rx.State):
         """Set current company and load available periods"""
         self.current_company = company
         # Load periods for this company
-        from ..services.data_mgt import DataManager
+        from .services.data_mgt import DataManager
         periods = DataManager.get_available_period_strings(company)
         self.available_periods = periods
         if periods:
@@ -43,7 +43,7 @@ class GlobalState(rx.State):
 
     def load_companies(self):
         """Load available companies"""
-        from ..services.data_mgt import DataManager
+        from .services.data_mgt import DataManager
         companies = DataManager.get_companies()
         self.available_companies = companies
         if companies and not self.current_company:
@@ -59,10 +59,6 @@ class GlobalState(rx.State):
         """Check if company and period are selected"""
         return bool(self.current_company and self.current_period)
 
-
-class AuthState(GlobalState):
-    """Manages authentication state"""
-    
     def set_username(self, value: str):
         self.username = value
 
@@ -79,7 +75,7 @@ class AuthState(GlobalState):
             return
 
         # Use existing AuthManager
-        if AuthManager.verify_user(username, password):
+        if AuthManager.verify_login(username, password):
             user_data = AuthManager.get_user(username)
             self.is_authenticated = True
             self.user = username
@@ -106,6 +102,11 @@ class AuthState(GlobalState):
         return rx.redirect("/")
 
 
+class AuthState(GlobalState):
+    """Manages authentication state - inherits from GlobalState"""
+    pass
+
+
 class CompanyState(GlobalState):
     """Manages company and period selection"""
     pass
@@ -125,7 +126,7 @@ class DataState(GlobalState):
         if not company_state.current_company or not company_state.current_period:
             return
 
-        from ..services.data_mgt import DataManager
+        from .services.data_mgt import DataManager
         import polars as pl
         
         month, year = map(int, company_state.current_period.split('-'))

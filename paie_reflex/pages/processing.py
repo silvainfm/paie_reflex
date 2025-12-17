@@ -22,12 +22,12 @@ class ProcessingState(GlobalState):
     def start_processing(self):
         """Start payroll processing."""
         if not self.has_selection:
-            self.processing_message = "Select company and period first"
+            self.processing_message = "Sélectionnez d'abord une société et une période"
             self.processing_status = "error"
             return
         
         self.processing_status = "running"
-        self.processing_message = "Processing payroll..."
+        self.processing_message = "Traitement de la paie en cours..."
         
         try:
             # Implement processing logic
@@ -44,7 +44,7 @@ class ProcessingState(GlobalState):
                 self.anomalies_detected = 1
             
             self.processing_status = "success"
-            self.processing_message = "Processing completed successfully"
+            self.processing_message = "Traitement terminé avec succès"
             
         except Exception as e:
             self.processing_status = "error"
@@ -63,12 +63,12 @@ def index() -> rx.Component:
             sidebar_nav(),
             rx.box(
                 rx.vstack(
-                    rx.heading("Process Payroll", size="8", margin_bottom="1rem"),
-                    
+                    rx.heading("Traitement de la paie", size="8", margin_bottom="1rem"),
+
                     rx.cond(
                         ~GlobalState.has_selection,
                         rx.callout(
-                            "Select company and period first",
+                            "Sélectionnez d'abord une société et une période",
                             icon="alert-circle",
                             color_scheme="red",
                         ),
@@ -77,11 +77,11 @@ def index() -> rx.Component:
                     
                     rx.card(
                         rx.vstack(
-                            rx.heading("Automatic Processing", size="5"),
+                            rx.heading("Traitement automatique", size="5"),
                             rx.text(
-                                "Salary calculation per Monaco legislation • Intelligent remark analysis • "
-                                "Previous month comparison • Automatic corrections (≥95% confidence) • "
-                                "Anomaly detection",
+                                "Calcul des salaires selon la législation monégasque • Analyse intelligente des remarques • "
+                                "Comparaison avec le mois précédent • Corrections automatiques (≥95% de confiance) • "
+                                "Détection d'anomalies",
                                 size="2",
                                 color="#6c757d",
                             ),
@@ -90,21 +90,21 @@ def index() -> rx.Component:
                     ),
                     
                     rx.divider(),
-                    
+
                     rx.heading("Configuration", size="6"),
                     rx.hstack(
                         rx.switch(
                             checked=ProcessingState.enable_agent,
                             on_change=ProcessingState.toggle_agent,
                         ),
-                        rx.text("Enable intelligent agent processing", size="3"),
+                        rx.text("Activer le traitement par agent intelligent", size="3"),
                         spacing="3",
                     ),
                     
                     rx.divider(),
-                    
+
                     rx.button(
-                        "Start Processing",
+                        "Lancer le traitement",
                         on_click=ProcessingState.start_processing,
                         size="3",
                         disabled=ProcessingState.processing_status == "running",
@@ -126,12 +126,12 @@ def index() -> rx.Component:
                             ),
                             
                             rx.divider(),
-                            
-                            rx.heading("Results", size="6"),
+
+                            rx.heading("Résultats", size="6"),
                             rx.grid(
                                 rx.box(
                                     rx.vstack(
-                                        rx.text("Processed", size="2", color="#6c757d"),
+                                        rx.text("Traités", size="2", color="#6c757d"),
                                         rx.text(ProcessingState.processed_count, size="6", weight="bold"),
                                         spacing="2",
                                     ),
@@ -141,7 +141,7 @@ def index() -> rx.Component:
                                 ),
                                 rx.box(
                                     rx.vstack(
-                                        rx.text("Validated", size="2", color="#6c757d"),
+                                        rx.text("Validés", size="2", color="#6c757d"),
                                         rx.text(ProcessingState.validated_count, size="6", weight="bold", color="green"),
                                         spacing="2",
                                     ),
@@ -151,7 +151,7 @@ def index() -> rx.Component:
                                 ),
                                 rx.box(
                                     rx.vstack(
-                                        rx.text("Edge Cases", size="2", color="#6c757d"),
+                                        rx.text("Cas particuliers", size="2", color="#6c757d"),
                                         rx.text(ProcessingState.edge_cases, size="6", weight="bold", color="orange"),
                                         spacing="2",
                                     ),
@@ -166,11 +166,11 @@ def index() -> rx.Component:
                             rx.cond(
                                 ProcessingState.enable_agent,
                                 rx.vstack(
-                                    rx.heading("Agent Report", size="6"),
+                                    rx.heading("Rapport de l'agent", size="6"),
                                     rx.grid(
                                         rx.box(
                                             rx.vstack(
-                                                rx.text("Automatic Mods", size="2", color="#6c757d"),
+                                                rx.text("Modifications auto", size="2", color="#6c757d"),
                                                 rx.text(ProcessingState.automatic_mods, size="5", weight="bold"),
                                                 spacing="2",
                                             ),
@@ -180,7 +180,7 @@ def index() -> rx.Component:
                                         ),
                                         rx.box(
                                             rx.vstack(
-                                                rx.text("Flagged Cases", size="2", color="#6c757d"),
+                                                rx.text("Cas signalés", size="2", color="#6c757d"),
                                                 rx.text(ProcessingState.flagged_cases, size="5", weight="bold"),
                                                 spacing="2",
                                             ),

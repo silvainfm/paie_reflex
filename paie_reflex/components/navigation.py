@@ -8,7 +8,7 @@ def navbar() -> rx.Component:
     return rx.box(
         rx.hstack(
             # Logo/Title
-            rx.heading("Monaco Payroll", size="7", weight="bold"),
+            rx.heading("Monaco Paie", size="7", weight="bold"),
             
             rx.spacer(),
             
@@ -70,12 +70,12 @@ def sidebar_nav() -> rx.Component:
     nav_items = [
         ("Home", "/", "home"),
         ("Import", "/import", "upload"),
-        ("Processing", "/processing", "settings"),
+        ("Traitement", "/processing", "settings"),
         ("Validation", "/validation", "check-circle"),
-        ("Dashboard", "/dashboard", "bar-chart-2"),
+        ("Tableau de Bord", "/dashboard", "bar-chart-2"),
         ("PDFs", "/pdf", "file-text"),
         ("Export", "/export", "download"),
-        ("Config", "/config", "settings"),
+        ("Configuration", "/config", "settings"),
     ]
     
     return rx.box(

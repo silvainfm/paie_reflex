@@ -49,9 +49,9 @@ class ExportState(GlobalState):
         try:
             month, year = map(int, self.current_period.split('-'))
             df = DataManager.load_period_data(self.current_company, month, year)
-            
+
             if df.is_empty():
-                self.export_status = "No data to export"
+                self.export_status = "Aucune donnée à exporter"
                 return
             
             # Create Excel file
@@ -90,23 +90,23 @@ class ExportState(GlobalState):
                 ws.set_column('D:H', 14)
             
             self.excel_data = base64.b64encode(output.getvalue()).decode()
-            self.export_status = "✓ Excel generated"
-            
+            self.export_status = "✓ Excel généré"
+
         except Exception as e:
-            self.export_status = f"Error: {str(e)}"
+            self.export_status = f"Erreur: {str(e)}"
     
     async def generate_dsm_xml(self):
         """Generate DSM XML."""
         if not self.employer_number:
-            self.export_status = "Employer number required for DSM"
+            self.export_status = "Numéro employeur requis pour la DSM"
             return
-        
+
         try:
             month, year = map(int, self.current_period.split('-'))
             df = DataManager.load_period_data(self.current_company, month, year)
-            
+
             if df.is_empty():
-                self.export_status = "No data to export"
+                self.export_status = "Aucune donnée à exporter"
                 return
             
             # Generate XML
@@ -114,10 +114,10 @@ class ExportState(GlobalState):
             xml_buffer = generator.generate_dsm_xml(df, self.current_period)
             
             self.dsm_data = base64.b64encode(xml_buffer.getvalue()).decode()
-            self.export_status = "✓ DSM XML generated"
-            
+            self.export_status = "✓ DSM XML généré"
+
         except Exception as e:
-            self.export_status = f"Error: {str(e)}"
+            self.export_status = f"Erreur: {str(e)}"
 
 
 def index() -> rx.Component:
@@ -128,32 +128,32 @@ def index() -> rx.Component:
             sidebar_nav(),
             rx.box(
                 rx.vstack(
-                    rx.heading("Export Results", size="8", margin_bottom="1rem"),
-                    
+                    rx.heading("Export des résultats", size="8", margin_bottom="1rem"),
+
                     rx.cond(
                         ~GlobalState.has_selection,
                         rx.callout(
-                            "Select company and period first",
+                            "Sélectionnez d'abord une société et une période",
                             icon="alert-circle",
                             color_scheme="red",
                         ),
                         rx.fragment(),
                     ),
-                    
+
                     rx.tabs.root(
                         rx.tabs.list(
-                            rx.tabs.trigger("Excel Export", value="excel"),
+                            rx.tabs.trigger("Export Excel", value="excel"),
                             rx.tabs.trigger("DSM Monaco", value="dsm"),
                         ),
                         
                         rx.tabs.content(
                             rx.vstack(
-                                rx.heading("Export to Excel", size="6"),
-                                
+                                rx.heading("Exporter vers Excel", size="6"),
+
                                 rx.grid(
                                     rx.box(
                                         rx.vstack(
-                                            rx.text("Employees", size="2", color="#6c757d"),
+                                            rx.text("Employés", size="2", color="#6c757d"),
                                             rx.text(ExportState.employee_count, size="5", weight="bold"),
                                             spacing="2",
                                         ),
@@ -163,7 +163,7 @@ def index() -> rx.Component:
                                     ),
                                     rx.box(
                                         rx.vstack(
-                                            rx.text("Gross Payroll", size="2", color="#6c757d"),
+                                            rx.text("Masse salariale brute", size="2", color="#6c757d"),
                                             rx.text(f"{ExportState.total_brut:,.0f} €", size="5", weight="bold"),
                                             spacing="2",
                                         ),
@@ -173,7 +173,7 @@ def index() -> rx.Component:
                                     ),
                                     rx.box(
                                         rx.vstack(
-                                            rx.text("Net to Pay", size="2", color="#6c757d"),
+                                            rx.text("Net à payer", size="2", color="#6c757d"),
                                             rx.text(f"{ExportState.total_net:,.0f} €", size="5", weight="bold"),
                                             spacing="2",
                                         ),
@@ -184,17 +184,17 @@ def index() -> rx.Component:
                                     columns="3",
                                     spacing="4",
                                 ),
-                                
+
                                 rx.button(
-                                    "Generate Excel",
+                                    "Générer Excel",
                                     on_click=ExportState.generate_excel,
                                     size="3",
                                 ),
-                                
+
                                 rx.cond(
                                     ExportState.excel_data,
-                                    rx.download(
-                                        rx.button("Download Excel", size="3", variant="soft"),
+                                    rx.link(
+                                        rx.button("Télécharger Excel", size="3", variant="soft"),
                                         url=f"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{ExportState.excel_data}",
                                         filename=f"payroll_{ExportState.current_period}.xlsx",
                                     ),
@@ -208,27 +208,27 @@ def index() -> rx.Component:
                         
                         rx.tabs.content(
                             rx.vstack(
-                                rx.heading("DSM Monaco Declaration", size="6"),
-                                rx.text("Generate XML file for Monaco social security declaration", size="2", color="#6c757d"),
-                                
+                                rx.heading("Déclaration DSM Monaco", size="6"),
+                                rx.text("Générer le fichier XML pour la déclaration sociale monégasque", size="2", color="#6c757d"),
+
                                 rx.cond(
                                     ExportState.employer_number,
                                     rx.callout(
-                                        f"Employer Number: {ExportState.employer_number}",
+                                        f"Numéro employeur: {ExportState.employer_number}",
                                         icon="check-circle",
                                         color_scheme="green",
                                     ),
                                     rx.callout(
-                                        "Employer number not configured. Set in Config → Company",
+                                        "Numéro employeur non configuré. Définir dans Config → Société",
                                         icon="alert-circle",
                                         color_scheme="red",
                                     ),
                                 ),
-                                
+
                                 rx.grid(
                                     rx.box(
                                         rx.vstack(
-                                            rx.text("Employees", size="2", color="#6c757d"),
+                                            rx.text("Employés", size="2", color="#6c757d"),
                                             rx.text(ExportState.employee_count, size="5", weight="bold"),
                                             spacing="2",
                                         ),
@@ -249,18 +249,18 @@ def index() -> rx.Component:
                                     columns="2",
                                     spacing="4",
                                 ),
-                                
+
                                 rx.button(
-                                    "Generate DSM XML",
+                                    "Générer DSM XML",
                                     on_click=ExportState.generate_dsm_xml,
                                     size="3",
                                     disabled=~ExportState.employer_number.bool(),
                                 ),
-                                
+
                                 rx.cond(
                                     ExportState.dsm_data,
-                                    rx.download(
-                                        rx.button("Download DSM XML", size="3", variant="soft"),
+                                    rx.link(
+                                        rx.button("Télécharger DSM XML", size="3", variant="soft"),
                                         url=f"data:application/xml;base64,{ExportState.dsm_data}",
                                         filename=f"DSM_{ExportState.employer_number}_{ExportState.current_period}.xml",
                                     ),

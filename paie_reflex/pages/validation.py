@@ -66,7 +66,7 @@ class ValidationState(GlobalState):
                 self.employees = []
 
         except Exception as e:
-            self.error_message = f"Error loading employees: {str(e)}"
+            self.error_message = f"Erreur lors du chargement des employés: {str(e)}"
             self.employees = []
         finally:
             self.is_loading = False
@@ -213,18 +213,18 @@ class ValidationState(GlobalState):
             self.selected_employee = recalculated
 
         except Exception as e:
-            self.error_message = f"Error recalculating: {str(e)}"
+            self.error_message = f"Erreur lors du recalcul: {str(e)}"
         finally:
             self.is_loading = False
 
     async def save_modifications(self):
         """Save modifications to employee."""
         if not self.modification_reason:
-            self.error_message = "Modification reason required"
+            self.error_message = "Raison de modification requise"
             return
 
         if not self.modifications and not self.added_rubrics and not self.removed_rubrics:
-            self.error_message = "No modifications to save"
+            self.error_message = "Aucune modification à enregistrer"
             return
 
         self.is_loading = True
@@ -293,7 +293,7 @@ class ValidationState(GlobalState):
             self.load_employees()
 
         except Exception as e:
-            self.error_message = f"Error saving: {str(e)}"
+            self.error_message = f"Erreur lors de l'enregistrement: {str(e)}"
         finally:
             self.is_loading = False
 
@@ -320,7 +320,7 @@ class ValidationState(GlobalState):
                     )
                     break
         except Exception as e:
-            self.error_message = f"Error validating: {str(e)}"
+            self.error_message = f"Erreur lors de la validation: {str(e)}"
         finally:
             self.is_loading = False
 
@@ -340,9 +340,9 @@ class ValidationState(GlobalState):
             ]
 
         # Apply status filter
-        if self.status_filter == "To Verify":
+        if self.status_filter == "À vérifier":
             filtered = [e for e in filtered if e.get("edge_case_flag")]
-        elif self.status_filter == "Validated":
+        elif self.status_filter == "Validés":
             filtered = [e for e in filtered if e.get("statut_validation")]
 
         return filtered
@@ -361,7 +361,7 @@ def added_rubric_item(rubric: Dict) -> rx.Component:
             ValidationState.edit_mode,
             rx.input(
                 value=rubric['value'],
-                on_change=lambda v: ValidationState.update_added_rubric_value(rubric['field_name'], float(v)),
+                on_change=lambda v: ValidationState.update_added_rubric_value(rubric['field_name'], v),
                 type="number",
                 step=10,
                 width="150px",
@@ -371,7 +371,7 @@ def added_rubric_item(rubric: Dict) -> rx.Component:
         rx.cond(
             ValidationState.edit_mode,
             rx.button(
-                "Remove",
+                "Supprimer",
                 on_click=ValidationState.remove_rubric(rubric['field_name']),
                 variant="soft",
                 color_scheme="red",
@@ -389,15 +389,15 @@ def salary_elements_tab() -> rx.Component:
     """Salary elements editing tab."""
     return rx.vstack(
         # Hours section
-        rx.heading("Hours", size="4", margin_bottom="0.5rem"),
+        rx.heading("Heures", size="4", margin_bottom="0.5rem"),
         rx.grid(
             rx.vstack(
-                rx.text("Base Hours", size="2"),
+                rx.text("Heures de base", size="2"),
                 rx.cond(
                     ValidationState.edit_mode,
                     rx.input(
                         value=ValidationState.selected_employee.get("base_heures", 0),
-                        on_change=lambda v: ValidationState.set_modification("base_heures", float(v)),
+                        on_change=lambda v: ValidationState.set_modification("base_heures", v),
                         type="number",
                         step=0.5,
                     ),
@@ -406,12 +406,12 @@ def salary_elements_tab() -> rx.Component:
                 spacing="1",
             ),
             rx.vstack(
-                rx.text("Hours Paid", size="2"),
+                rx.text("Heures payées", size="2"),
                 rx.cond(
                     ValidationState.edit_mode,
                     rx.input(
                         value=ValidationState.selected_employee.get("heures_payees", 0),
-                        on_change=lambda v: ValidationState.set_modification("heures_payees", float(v)),
+                        on_change=lambda v: ValidationState.set_modification("heures_payees", v),
                         type="number",
                         step=0.5,
                     ),
@@ -420,12 +420,12 @@ def salary_elements_tab() -> rx.Component:
                 spacing="1",
             ),
             rx.vstack(
-                rx.text("Absence Hours", size="2"),
+                rx.text("Heures d'absence", size="2"),
                 rx.cond(
                     ValidationState.edit_mode,
                     rx.input(
                         value=ValidationState.selected_employee.get("heures_absence", 0),
-                        on_change=lambda v: ValidationState.set_modification("heures_absence", float(v)),
+                        on_change=lambda v: ValidationState.set_modification("heures_absence", v),
                         type="number",
                         step=0.5,
                     ),
@@ -434,12 +434,12 @@ def salary_elements_tab() -> rx.Component:
                 spacing="1",
             ),
             rx.vstack(
-                rx.text("PTO Hours", size="2"),
+                rx.text("Heures CP", size="2"),
                 rx.cond(
                     ValidationState.edit_mode,
                     rx.input(
                         value=ValidationState.selected_employee.get("heures_conges_payes", 0),
-                        on_change=lambda v: ValidationState.set_modification("heures_conges_payes", float(v)),
+                        on_change=lambda v: ValidationState.set_modification("heures_conges_payes", v),
                         type="number",
                         step=0.5,
                     ),
@@ -454,15 +454,15 @@ def salary_elements_tab() -> rx.Component:
         rx.divider(),
 
         # Overtime section
-        rx.heading("Overtime", size="4", margin_bottom="0.5rem"),
+        rx.heading("Heures supplémentaires", size="4", margin_bottom="0.5rem"),
         rx.grid(
             rx.vstack(
-                rx.text("OT 125%", size="2"),
+                rx.text("HS 125%", size="2"),
                 rx.cond(
                     ValidationState.edit_mode,
                     rx.input(
                         value=ValidationState.selected_employee.get("heures_sup_125", 0),
-                        on_change=lambda v: ValidationState.set_modification("heures_sup_125", float(v)),
+                        on_change=lambda v: ValidationState.set_modification("heures_sup_125", v),
                         type="number",
                         step=0.5,
                     ),
@@ -471,12 +471,12 @@ def salary_elements_tab() -> rx.Component:
                 spacing="1",
             ),
             rx.vstack(
-                rx.text("OT 150%", size="2"),
+                rx.text("HS 150%", size="2"),
                 rx.cond(
                     ValidationState.edit_mode,
                     rx.input(
                         value=ValidationState.selected_employee.get("heures_sup_150", 0),
-                        on_change=lambda v: ValidationState.set_modification("heures_sup_150", float(v)),
+                        on_change=lambda v: ValidationState.set_modification("heures_sup_150", v),
                         type="number",
                         step=0.5,
                     ),
@@ -485,12 +485,12 @@ def salary_elements_tab() -> rx.Component:
                 spacing="1",
             ),
             rx.vstack(
-                rx.text("Holiday Hours", size="2"),
+                rx.text("Heures fériées", size="2"),
                 rx.cond(
                     ValidationState.edit_mode,
                     rx.input(
                         value=ValidationState.selected_employee.get("heures_jours_feries", 0),
-                        on_change=lambda v: ValidationState.set_modification("heures_jours_feries", float(v)),
+                        on_change=lambda v: ValidationState.set_modification("heures_jours_feries", v),
                         type="number",
                         step=0.5,
                     ),
@@ -499,12 +499,12 @@ def salary_elements_tab() -> rx.Component:
                 spacing="1",
             ),
             rx.vstack(
-                rx.text("Sunday Hours", size="2"),
+                rx.text("Heures dimanche", size="2"),
                 rx.cond(
                     ValidationState.edit_mode,
                     rx.input(
                         value=ValidationState.selected_employee.get("heures_dimanche", 0),
-                        on_change=lambda v: ValidationState.set_modification("heures_dimanche", float(v)),
+                        on_change=lambda v: ValidationState.set_modification("heures_dimanche", v),
                         type="number",
                         step=0.5,
                     ),
@@ -519,15 +519,15 @@ def salary_elements_tab() -> rx.Component:
         rx.divider(),
 
         # Salary & Primes section
-        rx.heading("Salary & Bonuses", size="4", margin_bottom="0.5rem"),
+        rx.heading("Salaire & Primes", size="4", margin_bottom="0.5rem"),
         rx.grid(
             rx.vstack(
-                rx.text("Base Salary", size="2"),
+                rx.text("Salaire de base", size="2"),
                 rx.cond(
                     ValidationState.edit_mode,
                     rx.input(
                         value=ValidationState.selected_employee.get("salaire_base", 0),
-                        on_change=lambda v: ValidationState.set_modification("salaire_base", float(v)),
+                        on_change=lambda v: ValidationState.set_modification("salaire_base", v),
                         type="number",
                         step=10,
                     ),
@@ -536,12 +536,12 @@ def salary_elements_tab() -> rx.Component:
                 spacing="1",
             ),
             rx.vstack(
-                rx.text("Hourly Rate", size="2"),
+                rx.text("Taux horaire", size="2"),
                 rx.cond(
                     ValidationState.edit_mode,
                     rx.input(
                         value=ValidationState.selected_employee.get("taux_horaire", 0),
-                        on_change=lambda v: ValidationState.set_modification("taux_horaire", float(v)),
+                        on_change=lambda v: ValidationState.set_modification("taux_horaire", v),
                         type="number",
                         step=0.1,
                     ),
@@ -550,12 +550,12 @@ def salary_elements_tab() -> rx.Component:
                 spacing="1",
             ),
             rx.vstack(
-                rx.text("Performance Bonus", size="2"),
+                rx.text("Prime", size="2"),
                 rx.cond(
                     ValidationState.edit_mode,
                     rx.input(
                         value=ValidationState.selected_employee.get("prime", 0),
-                        on_change=lambda v: ValidationState.set_modification("prime", float(v)),
+                        on_change=lambda v: ValidationState.set_modification("prime", v),
                         type="number",
                         step=10,
                     ),
@@ -564,12 +564,12 @@ def salary_elements_tab() -> rx.Component:
                 spacing="1",
             ),
             rx.vstack(
-                rx.text("Meal Vouchers", size="2"),
+                rx.text("Tickets restaurant", size="2"),
                 rx.cond(
                     ValidationState.edit_mode,
                     rx.input(
                         value=ValidationState.selected_employee.get("tickets_restaurant", 0),
-                        on_change=lambda v: ValidationState.set_modification("tickets_restaurant", int(v)),
+                        on_change=lambda v: ValidationState.set_modification("tickets_restaurant", v),
                         type="number",
                     ),
                     rx.text(f"{ValidationState.selected_employee.get('tickets_restaurant', 0)}"),
@@ -583,7 +583,7 @@ def salary_elements_tab() -> rx.Component:
         rx.divider(),
 
         # Additional Rubrics section
-        rx.heading("Additional Rubrics", size="4", margin_bottom="0.5rem"),
+        rx.heading("Rubriques additionnelles", size="4", margin_bottom="0.5rem"),
 
         # Show currently added rubrics
         rx.cond(
@@ -596,7 +596,7 @@ def salary_elements_tab() -> rx.Component:
                 spacing="2",
                 width="100%",
             ),
-            rx.text("No additional rubrics added", size="2", color="#6c757d"),
+            rx.text("Aucune rubrique additionnelle ajoutée", size="2", color="#6c757d"),
         ),
 
         # Add new rubric controls
@@ -605,13 +605,13 @@ def salary_elements_tab() -> rx.Component:
             rx.hstack(
                 rx.select(
                     ValidationState.available_rubrics_for_dropdown,
-                    placeholder="Select rubric to add",
+                    placeholder="Sélectionner une rubrique à ajouter",
                     value=ValidationState.selected_rubric_to_add,
                     on_change=ValidationState.set_selected_rubric,
                     width="300px",
                 ),
                 rx.button(
-                    "Add Rubric",
+                    "Ajouter rubrique",
                     on_click=ValidationState.add_rubric,
                     variant="soft",
                     disabled=ValidationState.selected_rubric_to_add == "",
@@ -628,45 +628,14 @@ def salary_elements_tab() -> rx.Component:
 
 def charges_tab() -> rx.Component:
     """Social charges editing tab."""
-    emp = ValidationState.selected_employee
-    details = emp.get("details_charges", {})
-    charges_sal = details.get("charges_salariales", {})
-    charges_pat = details.get("charges_patronales", {})
-
     return rx.vstack(
-        rx.text("Social charges editing - showing current charges", size="3", margin_bottom="1rem"),
-        rx.text("Employee Charges", weight="bold", size="4"),
-        rx.box(
-            rx.foreach(
-                charges_sal.items(),
-                lambda item: rx.hstack(
-                    rx.text(item[0], width="300px"),
-                    rx.text(f"{item[1]:,.2f} €", weight="bold"),
-                    spacing="3",
-                ),
-            ),
-            padding="1rem",
-            bg="#f8f9fa",
-            border_radius="4px",
+        rx.callout(
+            "L'édition des charges sociales arrive bientôt. Pour l'instant, les charges sont calculées automatiquement lors du traitement de la paie.",
+            icon="info",
+            color_scheme="blue",
         ),
-
-        rx.divider(),
-
-        rx.text("Employer Charges", weight="bold", size="4"),
-        rx.box(
-            rx.foreach(
-                charges_pat.items(),
-                lambda item: rx.hstack(
-                    rx.text(item[0], width="300px"),
-                    rx.text(f"{item[1]:,.2f} €", weight="bold"),
-                    spacing="3",
-                ),
-            ),
-            padding="1rem",
-            bg="#f8f9fa",
-            border_radius="4px",
-        ),
-
+        rx.text("Charges salariales", weight="bold", size="4", margin_top="1rem"),
+        rx.text("Les charges sont affichées dans la page de traitement après calcul.", size="2", color="gray"),
         spacing="4",
         width="100%",
     )
@@ -704,7 +673,7 @@ def edit_modal() -> rx.Component:
                 # Summary stats
                 rx.grid(
                     rx.vstack(
-                        rx.text("Gross", size="2", color="#6c757d"),
+                        rx.text("Brut", size="2", color="#6c757d"),
                         rx.text(f"{ValidationState.selected_employee.get('salaire_brut', 0):,.2f} €", size="4", weight="bold"),
                         spacing="1",
                     ),
@@ -714,7 +683,7 @@ def edit_modal() -> rx.Component:
                         spacing="1",
                     ),
                     rx.vstack(
-                        rx.text("Total Cost", size="2", color="#6c757d"),
+                        rx.text("Coût total", size="2", color="#6c757d"),
                         rx.text(f"{ValidationState.selected_employee.get('cout_total_employeur', 0):,.2f} €", size="4", weight="bold"),
                         spacing="1",
                     ),
@@ -726,8 +695,8 @@ def edit_modal() -> rx.Component:
                 # Tabs
                 rx.tabs.root(
                     rx.tabs.list(
-                        rx.tabs.trigger("Salary Elements", value="salary"),
-                        rx.tabs.trigger("Social Charges", value="charges"),
+                        rx.tabs.trigger("Éléments de salaire", value="salary"),
+                        rx.tabs.trigger("Charges sociales", value="charges"),
                     ),
                     rx.tabs.content(
                         salary_elements_tab(),
@@ -746,9 +715,9 @@ def edit_modal() -> rx.Component:
 
                 # Modification reason
                 rx.vstack(
-                    rx.text("Modification Reason (required)", weight="bold"),
+                    rx.text("Raison de modification (requise)", weight="bold"),
                     rx.text_area(
-                        placeholder="Explain why these changes are being made...",
+                        placeholder="Expliquez pourquoi ces modifications sont apportées...",
                         value=ValidationState.modification_reason,
                         on_change=ValidationState.set_modification_reason,
                         width="100%",
@@ -762,12 +731,12 @@ def edit_modal() -> rx.Component:
                     rx.cond(
                         ValidationState.edit_mode,
                         rx.button(
-                            "Cancel Edit",
+                            "Annuler",
                             on_click=ValidationState.toggle_edit,
                             variant="soft",
                         ),
                         rx.button(
-                            "Edit",
+                            "Modifier",
                             on_click=ValidationState.toggle_edit,
                             variant="soft",
                         ),
@@ -778,7 +747,7 @@ def edit_modal() -> rx.Component:
                             rx.cond(
                                 ValidationState.is_loading,
                                 rx.spinner(size="3"),
-                                rx.text("Recalculate"),
+                                rx.text("Recalculer"),
                             ),
                             on_click=ValidationState.recalculate_payslip,
                             disabled=ValidationState.is_loading,
@@ -790,7 +759,7 @@ def edit_modal() -> rx.Component:
                         rx.cond(
                             ValidationState.is_loading,
                             rx.spinner(size="3"),
-                            rx.text("Save"),
+                            rx.text("Enregistrer"),
                         ),
                         on_click=ValidationState.save_modifications,
                         disabled=ValidationState.is_loading,
@@ -822,11 +791,11 @@ def employee_card(emp: Dict) -> rx.Component:
                 ),
                 rx.cond(
                     emp.get("edge_case_flag"),
-                    rx.badge("⚠️ To Verify", color_scheme="orange"),
+                    rx.badge("⚠️ À vérifier", color_scheme="orange"),
                     rx.cond(
                         emp.get("statut_validation"),
-                        rx.badge("✓ Validated", color_scheme="green"),
-                        rx.badge("⏳ Pending", color_scheme="gray"),
+                        rx.badge("✓ Validé", color_scheme="green"),
+                        rx.badge("⏳ En attente", color_scheme="gray"),
                     ),
                 ),
                 justify="between",
@@ -845,22 +814,22 @@ def employee_card(emp: Dict) -> rx.Component:
 
             rx.grid(
                 rx.vstack(
-                    rx.text("Gross Salary", size="2", color="#6c757d"),
+                    rx.text("Salaire brut", size="2", color="#6c757d"),
                     rx.text(f"{emp.get('salaire_brut', 0):,.2f} €", size="4", weight="bold"),
                     spacing="1",
                 ),
                 rx.vstack(
-                    rx.text("Employee Charges", size="2", color="#6c757d"),
+                    rx.text("Charges salariales", size="2", color="#6c757d"),
                     rx.text(f"{emp.get('total_charges_salariales', 0):,.2f} €", size="4", weight="bold"),
                     spacing="1",
                 ),
                 rx.vstack(
-                    rx.text("Net Salary", size="2", color="#6c757d"),
+                    rx.text("Salaire net", size="2", color="#6c757d"),
                     rx.text(f"{emp.get('salaire_net', 0):,.2f} €", size="4", weight="bold"),
                     spacing="1",
                 ),
                 rx.vstack(
-                    rx.text("Total Cost", size="2", color="#6c757d"),
+                    rx.text("Coût total", size="2", color="#6c757d"),
                     rx.text(f"{emp.get('cout_total_employeur', 0):,.2f} €", size="4", weight="bold"),
                     spacing="1",
                 ),
@@ -870,14 +839,14 @@ def employee_card(emp: Dict) -> rx.Component:
 
             rx.hstack(
                 rx.button(
-                    "Edit",
+                    "Modifier",
                     on_click=ValidationState.select_employee(emp["matricule"]),
                     variant="soft",
                 ),
                 rx.cond(
                     ~emp.get("statut_validation"),
                     rx.button(
-                        "Validate",
+                        "Valider",
                         on_click=ValidationState.validate_employee(emp["matricule"]),
                         variant="solid",
                     ),
@@ -909,7 +878,7 @@ def index() -> rx.Component:
                     rx.cond(
                         ~GlobalState.has_selection,
                         rx.callout(
-                            "Select company and period first",
+                            "Sélectionnez d'abord une société et une période",
                             icon="alert-circle",
                             color_scheme="red",
                         ),
@@ -930,18 +899,18 @@ def index() -> rx.Component:
                     # Filters
                     rx.hstack(
                         rx.input(
-                            placeholder="Search (ID, name)",
+                            placeholder="Rechercher (ID, nom)",
                             value=ValidationState.search_query,
                             on_change=ValidationState.set_search,
                         ),
                         rx.select(
-                            ["All", "To Verify", "Validated"],
+                            ["Tous", "À vérifier", "Validés"],
                             value=ValidationState.status_filter,
                             on_change=ValidationState.set_filter,
                         ),
                         rx.box(
                             rx.hstack(
-                                rx.text("Edge Cases:", size="3"),
+                                rx.text("Cas particuliers:", size="3"),
                                 rx.badge(ValidationState.edge_case_count, color_scheme="red"),
                                 spacing="2",
                             ),

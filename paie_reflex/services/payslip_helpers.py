@@ -390,7 +390,7 @@ def log_time_entry(user: str, company: str, period: str, duration_seconds: float
     with open(log_file, 'a', encoding='utf-8') as f:
         f.write(json.dumps(log_entry, ensure_ascii=False) + '\n')
 
-def get_audit_logs(start_date: Optional[datetime] = None, 
+def get_audit_logs(start_date: Optional[datetime] = None,
                    end_date: Optional[datetime] = None,
                    company: Optional[str] = None,
                    user: Optional[str] = None) -> pl.DataFrame:
@@ -412,16 +412,16 @@ def get_audit_logs(start_date: Optional[datetime] = None,
         return pl.DataFrame()
 
     df = pl.DataFrame(all_logs)
-    
+
     # Add entry_type if missing
     if 'entry_type' not in df.columns:
         df = df.with_columns(pl.lit('modification').alias('entry_type'))
-    
+
     # Parse timestamps
     df = df.with_columns(
         pl.col('timestamp').str.strptime(pl.Datetime, format='%Y-%m-%dT%H:%M:%S%.f')
     )
-    
+
     # Apply filters
     if start_date:
         df = df.filter(pl.col('timestamp') >= start_date)
@@ -431,5 +431,30 @@ def get_audit_logs(start_date: Optional[datetime] = None,
         df = df.filter(pl.col('company') == company)
     if user:
         df = df.filter(pl.col('user') == user)
-    
+
     return df.sort('timestamp', descending=True)
+
+def get_time_tracking_summary(company: Optional[str] = None,
+                               user: Optional[str] = None) -> pl.DataFrame:
+    """Get time tracking summary by company and user"""
+    df = get_audit_logs(company=company, user=user)
+
+    if df.is_empty():
+        return pl.DataFrame()
+
+    # Filter for time tracking entries
+    time_df = df.filter(pl.col('entry_type') == 'time_tracking')
+
+    if time_df.is_empty():
+        return pl.DataFrame()
+
+    # Aggregate by user and company
+    summary = time_df.group_by(['user', 'company']).agg([
+        pl.col('duration_minutes').sum().alias('total_minutes'),
+        pl.col('duration_minutes').count().alias('session_count'),
+        pl.col('duration_minutes').mean().alias('avg_minutes_per_session')
+    ]).with_columns([
+        (pl.col('total_minutes') / 60).round(2).alias('total_hours')
+    ])
+
+    return summary.sort('total_minutes', descending=True)

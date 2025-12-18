@@ -1,0 +1,2 @@
+{"timestamp": "2025-12-18T13:30:11.750484", "entry_type": "time_tracking", "user": "admin", "company": "TEST001", "period": "12-2025", "session_start": "2025-12-18T13:17:25.004905", "session_end": "2025-12-18T13:30:11.750484", "duration_seconds": 766.745579, "duration_minutes": 12.78}
+{"timestamp": "2025-12-18T14:38:11.598901", "entry_type": "time_tracking", "user": "admin", "company": "TEST001", "period": "12-2025", "session_start": "2025-12-18T13:50:11.490239", "session_end": "2025-12-18T14:38:11.598901", "duration_seconds": 2880.108662, "duration_minutes": 48.0}

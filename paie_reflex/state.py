@@ -2,6 +2,7 @@
 
 import reflex as rx
 from typing import Optional
+from datetime import datetime
 from .services.auth import AuthManager
 
 
@@ -22,6 +23,12 @@ class GlobalState(rx.State):
     available_companies: list[str] = []
     available_periods: list[str] = []
 
+    # Time tracking
+    time_tracking_active: bool = False
+    time_tracking_start: Optional[str] = None
+    time_tracking_company: str = ""
+    time_tracking_period: str = ""
+
     def check_auth(self):
         """Check if user is authenticated - used in on_load"""
         if not self.is_authenticated:
@@ -37,9 +44,15 @@ class GlobalState(rx.State):
         if periods:
             self.current_period = periods[0]
 
+        # Restart time tracking for new company
+        self.check_and_restart_time_tracking()
+
     def set_period(self, period: str):
         """Set current period"""
         self.current_period = period
+
+        # Restart time tracking for new period
+        self.check_and_restart_time_tracking()
 
     def load_companies(self):
         """Load available companies"""
@@ -86,6 +99,9 @@ class GlobalState(rx.State):
             # Load companies on login
             self.load_companies()
 
+            # Start time tracking
+            self.start_time_tracking()
+
             # Redirect to import page
             return rx.redirect("/import")
         else:
@@ -94,12 +110,72 @@ class GlobalState(rx.State):
 
     def logout(self):
         """Logout user"""
+        # Stop time tracking before logout
+        self.stop_time_tracking()
+
         self.is_authenticated = False
         self.user = ""
         self.role = ""
         self.username = ""
         self.password = ""
         return rx.redirect("/")
+
+    def start_time_tracking(self):
+        """Start tracking time for current company/period"""
+        if not self.is_authenticated or not self.current_company:
+            return
+
+        # Stop any existing session first
+        if self.time_tracking_active:
+            self.stop_time_tracking()
+
+        self.time_tracking_active = True
+        self.time_tracking_start = datetime.now().isoformat()
+        self.time_tracking_company = self.current_company
+        self.time_tracking_period = self.current_period
+
+    def stop_time_tracking(self):
+        """Stop tracking time and log session"""
+        if not self.time_tracking_active or not self.time_tracking_start:
+            return
+
+        from .services.payslip_helpers import log_time_entry
+
+        session_end = datetime.now()
+        session_start = datetime.fromisoformat(self.time_tracking_start)
+        duration_seconds = (session_end - session_start).total_seconds()
+
+        # Only log if session > 10 seconds (avoid accidental clicks)
+        if duration_seconds > 10:
+            log_time_entry(
+                user=self.user,
+                company=self.time_tracking_company,
+                period=self.time_tracking_period,
+                duration_seconds=duration_seconds,
+                session_start=self.time_tracking_start,
+                session_end=session_end.isoformat()
+            )
+
+        self.time_tracking_active = False
+        self.time_tracking_start = None
+        self.time_tracking_company = ""
+        self.time_tracking_period = ""
+
+    def check_and_restart_time_tracking(self):
+        """Check if company/period changed and restart tracking"""
+        if not self.is_authenticated:
+            return
+
+        # If tracking is active and company/period changed
+        if self.time_tracking_active:
+            if (self.time_tracking_company != self.current_company or
+                self.time_tracking_period != self.current_period):
+                # Stop old session and start new one
+                self.stop_time_tracking()
+                self.start_time_tracking()
+        else:
+            # Start tracking if not active
+            self.start_time_tracking()
 
 
 class AuthState(GlobalState):

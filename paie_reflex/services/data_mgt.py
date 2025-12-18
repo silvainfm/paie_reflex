@@ -45,15 +45,63 @@ class DataManager:
                 prenom VARCHAR,
                 date_naissance DATE,
                 email VARCHAR,
+                emploi VARCHAR,
+                qualification VARCHAR,
+
+                -- Hours
+                base_heures DOUBLE,
+                heures_payees DOUBLE,
+                heures_conges_payes DOUBLE,
+                heures_absence DOUBLE,
+                heures_sup_125 DOUBLE,
+                heures_sup_150 DOUBLE,
+                heures_jours_feries DOUBLE,
+                heures_dimanche DOUBLE,
+
+                -- Salary
+                salaire_base DOUBLE,
+                taux_horaire DOUBLE,
+                prime DOUBLE,
+                type_prime VARCHAR,
+
+                -- Benefits
+                tickets_restaurant DOUBLE,
+                avantage_logement DOUBLE,
+                avantage_transport DOUBLE,
+
+                -- Cross-border
+                pays_residence VARCHAR,
+                ccss_number VARCHAR,
+                teletravail BOOLEAN,
+                pays_teletravail VARCHAR,
+
+                -- Calculated totals
                 salaire_brut DOUBLE,
                 salaire_net DOUBLE,
                 total_charges_salariales DOUBLE,
                 total_charges_patronales DOUBLE,
                 cout_total_employeur DOUBLE,
+                cumul_brut DOUBLE,
+                cumul_net_percu DOUBLE,
+
+                -- PTO (Congés Payés)
+                cp_acquis_n1 DOUBLE,
+                cp_pris_n1 DOUBLE,
+                cp_restants_n1 DOUBLE,
+                cp_acquis_n DOUBLE,
+                cp_pris_n DOUBLE,
+                cp_restants_n DOUBLE,
+
+                -- Validation & Edge cases
                 statut_validation BOOLEAN,
                 edge_case_flag BOOLEAN,
                 edge_case_reason VARCHAR,
+                remarques VARCHAR,
+
+                -- Detailed charges breakdown
                 details_charges JSON,
+
+                -- Metadata
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -151,12 +199,13 @@ class DataManager:
         conn = cls._get_connection()
         try:
             result = conn.execute("""
-                SELECT 
+                SELECT
                     COUNT(*) as employee_count,
                     SUM(salaire_brut) as total_brut,
                     SUM(salaire_net) as total_net,
+                    SUM(total_charges_salariales) as total_charges_sal,
                     SUM(total_charges_patronales) as total_charges_pat,
-                    SUM(cout_total_employeur) as total_cost,
+                    SUM(cout_total_employeur) as total_cout,
                     SUM(CASE WHEN statut_validation THEN 1 ELSE 0 END) as validated,
                     SUM(CASE WHEN edge_case_flag THEN 1 ELSE 0 END) as edge_cases
                 FROM payroll_data
@@ -165,13 +214,14 @@ class DataManager:
             
             if result:
                 return {
-                    "employee_count": result[0],
+                    "employee_count": result[0] or 0,
                     "total_brut": result[1] or 0,
                     "total_net": result[2] or 0,
-                    "total_charges_pat": result[3] or 0,
-                    "total_cost": result[4] or 0,
-                    "validated": result[5] or 0,
-                    "edge_cases": result[6] or 0,
+                    "total_charges_sal": result[3] or 0,
+                    "total_charges_pat": result[4] or 0,
+                    "total_cout": result[5] or 0,
+                    "validated": result[6] or 0,
+                    "edge_cases": result[7] or 0,
                 }
             return None
         except:

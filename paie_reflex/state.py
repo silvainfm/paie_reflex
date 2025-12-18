@@ -71,7 +71,7 @@ class GlobalState(rx.State):
         password = form_data.get("password", "")
 
         if not username or not password:
-            self.login_error = "Username and password required"
+            self.login_error = "Nom d'utilisateur et mot de passe requis"
             return
 
         # Use existing AuthManager
@@ -89,7 +89,7 @@ class GlobalState(rx.State):
             # Redirect to import page
             return rx.redirect("/import")
         else:
-            self.login_error = "Invalid credentials"
+            self.login_error = "Identifiants invalides"
             self.is_authenticated = False
 
     def logout(self):
@@ -121,27 +121,25 @@ class DataState(GlobalState):
     
     def load_period_data(self):
         """Load data for current company/period"""
-        company_state = self.get_state(CompanyState)
-
-        if not company_state.current_company or not company_state.current_period:
+        if not self.current_company or not self.current_period:
             return
 
         from .services.data_mgt import DataManager
         import polars as pl
-        
-        month, year = map(int, company_state.current_period.split('-'))
-        df = DataManager.load_period_data(company_state.current_company, month, year)
-        
+
+        month, year = map(int, self.current_period.split('-'))
+        df = DataManager.load_period_data(self.current_company, month, year)
+
         if not df.is_empty():
             self.processed_data = df.to_dicts()
-            
+
             # Load edge cases
             edge_df = df.filter(pl.col('edge_case_flag') == True)
             self.edge_cases = edge_df.to_dicts() if not edge_df.is_empty() else []
-            
+
             # Load summary
             self.summary = DataManager.get_company_summary(
-                company_state.current_company, year, month
+                self.current_company, year, month
             )
     
     def clear_data(self):

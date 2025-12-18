@@ -373,7 +373,7 @@ def index() -> rx.Component:
                             ConfigState.config_status,
                             rx.callout(
                                 ConfigState.config_status,
-                                icon="check-circle",
+                                icon="circle-check",
                                 color_scheme="green",
                             ),
                             rx.fragment(),

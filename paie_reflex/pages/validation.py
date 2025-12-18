@@ -1,7 +1,7 @@
-"""Validation page for reviewing and editing payslips."""
+"""Validation page for reviewing and editing payslips - Premium design."""
 import reflex as rx
 from typing import List, Dict
-from ..state import GlobalState, CompanyState
+from ..state import GlobalState
 from ..components import navbar, sidebar_nav
 from ..services.data_mgt import DataManager
 from ..services.payslip_helpers import (
@@ -12,6 +12,18 @@ from ..services.payslip_helpers import (
     get_available_charges_for_employee
 )
 from ..services.data_mgt import DataAuditLogger
+from ..design_tokens import (
+    COLORS,
+    SHADOWS,
+    RADIUS,
+    COMPONENT_SPACING,
+    HEADING_XL,
+    HEADING_MD,
+    HEADING_SM,
+    BODY_MD,
+    BODY_SM,
+    LABEL,
+)
 import polars as pl
 
 
@@ -20,7 +32,7 @@ class ValidationState(GlobalState):
 
     employees: List[Dict] = []
     search_query: str = ""
-    status_filter: str = "All"
+    status_filter: str = "Tous"
     selected_employee: Dict = {}
     edit_mode: bool = False
     show_edit_modal: bool = False
@@ -47,18 +59,16 @@ class ValidationState(GlobalState):
         self.error_message = ""
 
         try:
-            company_state = self.get_state(CompanyState)
-
-            if not company_state.current_company or not company_state.current_period:
+            if not self.current_company or not self.current_period:
                 self.employees = []
                 self.is_loading = False
                 return
 
             # Parse period
-            month, year = map(int, company_state.current_period.split('-'))
+            month, year = map(int, self.current_period.split('-'))
 
             # Load data from database
-            df = DataManager.load_period_data(company_state.current_company, month, year)
+            df = DataManager.load_period_data(self.current_company, month, year)
 
             if not df.is_empty():
                 self.employees = df.to_dicts()
@@ -94,8 +104,7 @@ class ValidationState(GlobalState):
                 self.selected_rubric_to_add = ""
 
                 # Load available rubrics and charges
-                company_state = self.get_state(CompanyState)
-                month, year = map(int, company_state.current_period.split('-'))
+                month, year = map(int, self.current_period.split('-'))
 
                 self.available_rubrics = load_rubrics_from_excel()
                 # Get charges not currently displayed
@@ -197,14 +206,13 @@ class ValidationState(GlobalState):
 
         self.is_loading = True
         try:
-            company_state = self.get_state(CompanyState)
-            month, year = map(int, company_state.current_period.split('-'))
+            month, year = map(int, self.current_period.split('-'))
 
             # Recalculate
             recalculated = recalculate_employee_payslip(
                 self.selected_employee,
                 self.modifications,
-                company_state.current_company,
+                self.current_company,
                 year,
                 month
             )
@@ -229,8 +237,7 @@ class ValidationState(GlobalState):
 
         self.is_loading = True
         try:
-            company_state = self.get_state(CompanyState)
-            month, year = map(int, company_state.current_period.split('-'))
+            month, year = map(int, self.current_period.split('-'))
 
             # Prepare audit info for rubric changes
             audit_info = dict(self.modifications)
@@ -243,7 +250,7 @@ class ValidationState(GlobalState):
             recalculated = recalculate_employee_payslip(
                 self.selected_employee,
                 self.modifications,
-                company_state.current_company,
+                self.current_company,
                 year,
                 month
             )
@@ -251,7 +258,7 @@ class ValidationState(GlobalState):
             # Save to database
             matricule = self.selected_employee.get("matricule")
             DataManager.update_employee_data(
-                company_state.current_company,
+                self.current_company,
                 year,
                 month,
                 matricule,
@@ -260,12 +267,10 @@ class ValidationState(GlobalState):
 
             # Log modification
             from ..services.auth import AuthManager
-            # Get current user from AuthState
-            auth_state = self.get_state(GlobalState)
-            user = getattr(auth_state, 'user', 'system')
+            user = getattr(self, 'user', 'system')
 
             DataAuditLogger.log_modification(
-                company_state.current_company,
+                self.current_company,
                 year,
                 month,
                 matricule,
@@ -301,8 +306,7 @@ class ValidationState(GlobalState):
         """Validate an employee's payslip."""
         self.is_loading = True
         try:
-            company_state = self.get_state(CompanyState)
-            month, year = map(int, company_state.current_period.split('-'))
+            month, year = map(int, self.current_period.split('-'))
 
             # Update validation status
             for emp in self.employees:
@@ -312,7 +316,7 @@ class ValidationState(GlobalState):
 
                     # Save to database
                     DataManager.update_employee_data(
-                        company_state.current_company,
+                        self.current_company,
                         year,
                         month,
                         matricule,
@@ -354,9 +358,15 @@ class ValidationState(GlobalState):
 
 
 def added_rubric_item(rubric: Dict) -> rx.Component:
-    """Render an added rubric item."""
+    """Premium added rubric item."""
     return rx.hstack(
-        rx.text(rubric['label'], width="200px"),
+        rx.text(
+            rubric['label'],
+            size=BODY_SM["size"],
+            weight="medium",
+            color=COLORS["neutral-700"],
+            width="200px",
+        ),
         rx.cond(
             ValidationState.edit_mode,
             rx.input(
@@ -364,363 +374,497 @@ def added_rubric_item(rubric: Dict) -> rx.Component:
                 on_change=lambda v: ValidationState.update_added_rubric_value(rubric['field_name'], v),
                 type="number",
                 step=10,
-                width="150px",
+                size="2",
+                style={
+                    "width": "150px",
+                    "bg": COLORS["white"],
+                    "border": f"1px solid {COLORS['neutral-300']}",
+                    "border_radius": RADIUS["lg"],
+                    "_focus": {
+                        "border_color": COLORS["primary-500"],
+                        "box_shadow": SHADOWS["focus_ring"],
+                    },
+                },
             ),
-            rx.text(f"{rubric['value']:,.2f} €"),
+            rx.text(
+                f"{rubric['value']:,.2f} €",
+                size=BODY_SM["size"],
+                color=COLORS["neutral-900"],
+                font_variant_numeric="tabular-nums",
+            ),
         ),
         rx.cond(
             ValidationState.edit_mode,
             rx.button(
-                "Supprimer",
+                rx.icon("x", size=16),
                 on_click=ValidationState.remove_rubric(rubric['field_name']),
-                variant="soft",
-                color_scheme="red",
                 size="1",
+                style={
+                    "bg": COLORS["error-100"],
+                    "color": COLORS["error-600"],
+                    "border": f"1px solid {COLORS['error-300']}",
+                    "border_radius": RADIUS["md"],
+                    "_hover": {"bg": COLORS["error-200"]},
+                },
             ),
             rx.fragment(),
         ),
         spacing="3",
         align="center",
         width="100%",
+        padding="0.5rem",
+        border_radius=RADIUS["md"],
+        bg=COLORS["neutral-50"],
+    )
+
+
+def form_field(label: str, field_name: str, value, step: float = 0.5, unit: str = "") -> rx.Component:
+    """Premium form field for editing."""
+    return rx.vstack(
+        rx.text(
+            label,
+            size=LABEL["size"],
+            weight=LABEL["weight"],
+            color=COLORS["neutral-500"],
+            text_transform=LABEL["text_transform"],
+            letter_spacing=LABEL["letter_spacing"],
+        ),
+        rx.cond(
+            ValidationState.edit_mode,
+            rx.input(
+                value=value,
+                on_change=lambda v: ValidationState.set_modification(field_name, v),
+                type="number",
+                step=step,
+                size="2",
+                style={
+                    "bg": COLORS["white"],
+                    "border": f"1px solid {COLORS['neutral-300']}",
+                    "border_radius": RADIUS["lg"],
+                    "padding": "0.625rem 0.875rem",
+                    "_focus": {
+                        "border_color": COLORS["primary-500"],
+                        "box_shadow": SHADOWS["focus_ring"],
+                    },
+                },
+            ),
+            rx.text(
+                f"{value:.2f}{unit}" if isinstance(value, (int, float)) else str(value),
+                size=BODY_MD["size"],
+                weight="medium",
+                color=COLORS["neutral-900"],
+                font_variant_numeric="tabular-nums",
+            ),
+        ),
+        spacing="2",
+        align="start",
     )
 
 
 def salary_elements_tab() -> rx.Component:
-    """Salary elements editing tab."""
+    """Premium salary elements editing tab."""
     return rx.vstack(
         # Hours section
-        rx.heading("Heures", size="4", margin_bottom="0.5rem"),
-        rx.grid(
-            rx.vstack(
-                rx.text("Heures de base", size="2"),
-                rx.cond(
-                    ValidationState.edit_mode,
-                    rx.input(
-                        value=ValidationState.selected_employee.get("base_heures", 0),
-                        on_change=lambda v: ValidationState.set_modification("base_heures", v),
-                        type="number",
-                        step=0.5,
-                    ),
-                    rx.text(f"{ValidationState.selected_employee.get('base_heures', 0):.2f}"),
-                ),
-                spacing="1",
+        rx.vstack(
+            rx.heading(
+                "Heures",
+                size=HEADING_SM["size"],
+                weight=HEADING_SM["weight"],
+                color=COLORS["primary-900"],
             ),
-            rx.vstack(
-                rx.text("Heures payées", size="2"),
-                rx.cond(
-                    ValidationState.edit_mode,
-                    rx.input(
-                        value=ValidationState.selected_employee.get("heures_payees", 0),
-                        on_change=lambda v: ValidationState.set_modification("heures_payees", v),
-                        type="number",
-                        step=0.5,
-                    ),
-                    rx.text(f"{ValidationState.selected_employee.get('heures_payees', 0):.2f}"),
-                ),
-                spacing="1",
-            ),
-            rx.vstack(
-                rx.text("Heures d'absence", size="2"),
-                rx.cond(
-                    ValidationState.edit_mode,
-                    rx.input(
-                        value=ValidationState.selected_employee.get("heures_absence", 0),
-                        on_change=lambda v: ValidationState.set_modification("heures_absence", v),
-                        type="number",
-                        step=0.5,
-                    ),
-                    rx.text(f"{ValidationState.selected_employee.get('heures_absence', 0):.2f}"),
-                ),
-                spacing="1",
-            ),
-            rx.vstack(
-                rx.text("Heures CP", size="2"),
-                rx.cond(
-                    ValidationState.edit_mode,
-                    rx.input(
-                        value=ValidationState.selected_employee.get("heures_conges_payes", 0),
-                        on_change=lambda v: ValidationState.set_modification("heures_conges_payes", v),
-                        type="number",
-                        step=0.5,
-                    ),
-                    rx.text(f"{ValidationState.selected_employee.get('heures_conges_payes', 0):.2f}"),
-                ),
-                spacing="1",
-            ),
-            columns="4",
-            spacing="3",
-        ),
-
-        rx.divider(),
-
-        # Overtime section
-        rx.heading("Heures supplémentaires", size="4", margin_bottom="0.5rem"),
-        rx.grid(
-            rx.vstack(
-                rx.text("HS 125%", size="2"),
-                rx.cond(
-                    ValidationState.edit_mode,
-                    rx.input(
-                        value=ValidationState.selected_employee.get("heures_sup_125", 0),
-                        on_change=lambda v: ValidationState.set_modification("heures_sup_125", v),
-                        type="number",
-                        step=0.5,
-                    ),
-                    rx.text(f"{ValidationState.selected_employee.get('heures_sup_125', 0):.2f}"),
-                ),
-                spacing="1",
-            ),
-            rx.vstack(
-                rx.text("HS 150%", size="2"),
-                rx.cond(
-                    ValidationState.edit_mode,
-                    rx.input(
-                        value=ValidationState.selected_employee.get("heures_sup_150", 0),
-                        on_change=lambda v: ValidationState.set_modification("heures_sup_150", v),
-                        type="number",
-                        step=0.5,
-                    ),
-                    rx.text(f"{ValidationState.selected_employee.get('heures_sup_150', 0):.2f}"),
-                ),
-                spacing="1",
-            ),
-            rx.vstack(
-                rx.text("Heures fériées", size="2"),
-                rx.cond(
-                    ValidationState.edit_mode,
-                    rx.input(
-                        value=ValidationState.selected_employee.get("heures_jours_feries", 0),
-                        on_change=lambda v: ValidationState.set_modification("heures_jours_feries", v),
-                        type="number",
-                        step=0.5,
-                    ),
-                    rx.text(f"{ValidationState.selected_employee.get('heures_jours_feries', 0):.2f}"),
-                ),
-                spacing="1",
-            ),
-            rx.vstack(
-                rx.text("Heures dimanche", size="2"),
-                rx.cond(
-                    ValidationState.edit_mode,
-                    rx.input(
-                        value=ValidationState.selected_employee.get("heures_dimanche", 0),
-                        on_change=lambda v: ValidationState.set_modification("heures_dimanche", v),
-                        type="number",
-                        step=0.5,
-                    ),
-                    rx.text(f"{ValidationState.selected_employee.get('heures_dimanche', 0):.2f}"),
-                ),
-                spacing="1",
-            ),
-            columns="4",
-            spacing="3",
-        ),
-
-        rx.divider(),
-
-        # Salary & Primes section
-        rx.heading("Salaire & Primes", size="4", margin_bottom="0.5rem"),
-        rx.grid(
-            rx.vstack(
-                rx.text("Salaire de base", size="2"),
-                rx.cond(
-                    ValidationState.edit_mode,
-                    rx.input(
-                        value=ValidationState.selected_employee.get("salaire_base", 0),
-                        on_change=lambda v: ValidationState.set_modification("salaire_base", v),
-                        type="number",
-                        step=10,
-                    ),
-                    rx.text(f"{ValidationState.selected_employee.get('salaire_base', 0):,.2f} €"),
-                ),
-                spacing="1",
-            ),
-            rx.vstack(
-                rx.text("Taux horaire", size="2"),
-                rx.cond(
-                    ValidationState.edit_mode,
-                    rx.input(
-                        value=ValidationState.selected_employee.get("taux_horaire", 0),
-                        on_change=lambda v: ValidationState.set_modification("taux_horaire", v),
-                        type="number",
-                        step=0.1,
-                    ),
-                    rx.text(f"{ValidationState.selected_employee.get('taux_horaire', 0):.2f} €"),
-                ),
-                spacing="1",
-            ),
-            rx.vstack(
-                rx.text("Prime", size="2"),
-                rx.cond(
-                    ValidationState.edit_mode,
-                    rx.input(
-                        value=ValidationState.selected_employee.get("prime", 0),
-                        on_change=lambda v: ValidationState.set_modification("prime", v),
-                        type="number",
-                        step=10,
-                    ),
-                    rx.text(f"{ValidationState.selected_employee.get('prime', 0):,.2f} €"),
-                ),
-                spacing="1",
-            ),
-            rx.vstack(
-                rx.text("Tickets restaurant", size="2"),
-                rx.cond(
-                    ValidationState.edit_mode,
-                    rx.input(
-                        value=ValidationState.selected_employee.get("tickets_restaurant", 0),
-                        on_change=lambda v: ValidationState.set_modification("tickets_restaurant", v),
-                        type="number",
-                    ),
-                    rx.text(f"{ValidationState.selected_employee.get('tickets_restaurant', 0)}"),
-                ),
-                spacing="1",
-            ),
-            columns="4",
-            spacing="3",
-        ),
-
-        rx.divider(),
-
-        # Additional Rubrics section
-        rx.heading("Rubriques additionnelles", size="4", margin_bottom="0.5rem"),
-
-        # Show currently added rubrics
-        rx.cond(
-            ValidationState.added_rubrics.length() > 0,
-            rx.vstack(
-                rx.foreach(
-                    ValidationState.added_rubrics,
-                    added_rubric_item,
-                ),
-                spacing="2",
+            rx.grid(
+                form_field("Heures de base", "base_heures", ValidationState.selected_employee.get("base_heures", 0), 0.5),
+                form_field("Heures payées", "heures_payees", ValidationState.selected_employee.get("heures_payees", 0), 0.5),
+                form_field("Heures d'absence", "heures_absence", ValidationState.selected_employee.get("heures_absence", 0), 0.5),
+                form_field("Heures CP", "heures_conges_payes", ValidationState.selected_employee.get("heures_conges_payes", 0), 0.5),
+                columns="4",
+                spacing=COMPONENT_SPACING["grid_gap"],
                 width="100%",
             ),
-            rx.text("Aucune rubrique additionnelle ajoutée", size="2", color="#6c757d"),
+            spacing="3",
+            width="100%",
         ),
 
-        # Add new rubric controls
-        rx.cond(
-            ValidationState.edit_mode,
-            rx.hstack(
-                rx.select(
-                    ValidationState.available_rubrics_for_dropdown,
-                    placeholder="Sélectionner une rubrique à ajouter",
-                    value=ValidationState.selected_rubric_to_add,
-                    on_change=ValidationState.set_selected_rubric,
-                    width="300px",
-                ),
-                rx.button(
-                    "Ajouter rubrique",
-                    on_click=ValidationState.add_rubric,
-                    variant="soft",
-                    disabled=ValidationState.selected_rubric_to_add == "",
-                ),
-                spacing="3",
+        rx.box(height="1px", bg=COLORS["neutral-200"], width="100%"),
+
+        # Overtime section
+        rx.vstack(
+            rx.heading(
+                "Heures supplémentaires",
+                size=HEADING_SM["size"],
+                weight=HEADING_SM["weight"],
+                color=COLORS["primary-900"],
             ),
-            rx.fragment(),
+            rx.grid(
+                form_field("HS 125%", "heures_sup_125", ValidationState.selected_employee.get("heures_sup_125", 0), 0.5),
+                form_field("HS 150%", "heures_sup_150", ValidationState.selected_employee.get("heures_sup_150", 0), 0.5),
+                form_field("Heures fériées", "heures_jours_feries", ValidationState.selected_employee.get("heures_jours_feries", 0), 0.5),
+                form_field("Heures dimanche", "heures_dimanche", ValidationState.selected_employee.get("heures_dimanche", 0), 0.5),
+                columns="4",
+                spacing=COMPONENT_SPACING["grid_gap"],
+                width="100%",
+            ),
+            spacing="3",
+            width="100%",
         ),
 
-        spacing="4",
+        rx.box(height="1px", bg=COLORS["neutral-200"], width="100%"),
+
+        # Salary & Primes section
+        rx.vstack(
+            rx.heading(
+                "Salaire & Primes",
+                size=HEADING_SM["size"],
+                weight=HEADING_SM["weight"],
+                color=COLORS["primary-900"],
+            ),
+            rx.grid(
+                form_field("Salaire de base", "salaire_base", ValidationState.selected_employee.get("salaire_base", 0), 10, " €"),
+                form_field("Taux horaire", "taux_horaire", ValidationState.selected_employee.get("taux_horaire", 0), 0.1, " €"),
+                form_field("Prime", "prime", ValidationState.selected_employee.get("prime", 0), 10, " €"),
+                form_field("Tickets restaurant", "tickets_restaurant", ValidationState.selected_employee.get("tickets_restaurant", 0), 1),
+                columns="4",
+                spacing=COMPONENT_SPACING["grid_gap"],
+                width="100%",
+            ),
+            spacing="3",
+            width="100%",
+        ),
+
+        rx.box(height="1px", bg=COLORS["neutral-200"], width="100%"),
+
+        # Additional Rubrics section
+        rx.vstack(
+            rx.heading(
+                "Rubriques additionnelles",
+                size=HEADING_SM["size"],
+                weight=HEADING_SM["weight"],
+                color=COLORS["primary-900"],
+            ),
+
+            # Show currently added rubrics
+            rx.cond(
+                ValidationState.added_rubrics.length() > 0,
+                rx.vstack(
+                    rx.foreach(
+                        ValidationState.added_rubrics,
+                        added_rubric_item,
+                    ),
+                    spacing="2",
+                    width="100%",
+                ),
+                rx.text(
+                    "Aucune rubrique additionnelle ajoutée",
+                    size=BODY_SM["size"],
+                    color=COLORS["neutral-500"],
+                ),
+            ),
+
+            # Add new rubric controls
+            rx.cond(
+                ValidationState.edit_mode,
+                rx.hstack(
+                    rx.select(
+                        ValidationState.available_rubrics_for_dropdown,
+                        placeholder="Sélectionner une rubrique",
+                        value=ValidationState.selected_rubric_to_add,
+                        on_change=ValidationState.set_selected_rubric,
+                        size="2",
+                        style={
+                            "width": "300px",
+                            "bg": COLORS["white"],
+                            "border": f"1px solid {COLORS['neutral-300']}",
+                            "border_radius": RADIUS["lg"],
+                            "_hover": {"border_color": COLORS["primary-300"]},
+                            "_focus": {
+                                "border_color": COLORS["primary-500"],
+                                "box_shadow": SHADOWS["focus_ring"],
+                            },
+                        },
+                    ),
+                    rx.button(
+                        rx.hstack(
+                            rx.icon("plus", size=16),
+                            rx.text("Ajouter"),
+                            spacing="2",
+                        ),
+                        on_click=ValidationState.add_rubric,
+                        disabled=ValidationState.selected_rubric_to_add == "",
+                        size="2",
+                        style={
+                            "bg": COLORS["primary-600"],
+                            "color": COLORS["white"],
+                            "border_radius": RADIUS["lg"],
+                            "padding": "0.625rem 1rem",
+                            "_hover": {"bg": COLORS["primary-700"]},
+                            "_disabled": {
+                                "bg": COLORS["neutral-300"],
+                                "cursor": "not-allowed",
+                            },
+                        },
+                    ),
+                    spacing="3",
+                ),
+                rx.fragment(),
+            ),
+
+            spacing="3",
+            width="100%",
+        ),
+
+        spacing="6",
         width="100%",
     )
 
 
 def charges_tab() -> rx.Component:
-    """Social charges editing tab."""
+    """Premium social charges tab."""
     return rx.vstack(
-        rx.callout(
-            "L'édition des charges sociales arrive bientôt. Pour l'instant, les charges sont calculées automatiquement lors du traitement de la paie.",
-            icon="info",
-            color_scheme="blue",
+        rx.box(
+            rx.hstack(
+                rx.icon("info", size=20, color=COLORS["info-600"]),
+                rx.text(
+                    "L'édition des charges sociales arrive bientôt. Les charges sont calculées automatiquement lors du traitement.",
+                    size=BODY_SM["size"],
+                    color=COLORS["info-600"],
+                ),
+                spacing="2",
+            ),
+            bg=COLORS["info-100"],
+            border=f"1px solid {COLORS['info-600']}",
+            border_radius=RADIUS["lg"],
+            padding="1rem",
         ),
-        rx.text("Charges salariales", weight="bold", size="4", margin_top="1rem"),
-        rx.text("Les charges sont affichées dans la page de traitement après calcul.", size="2", color="gray"),
         spacing="4",
         width="100%",
     )
 
 
 def edit_modal() -> rx.Component:
-    """Comprehensive employee edit modal."""
+    """Premium employee edit modal."""
     return rx.dialog.root(
         rx.dialog.content(
             rx.vstack(
                 # Header
                 rx.hstack(
-                    rx.heading(
-                        f"{ValidationState.selected_employee.get('nom', '')} {ValidationState.selected_employee.get('prenom', '')} - {ValidationState.selected_employee.get('matricule', '')}",
-                        size="6",
+                    rx.vstack(
+                        rx.heading(
+                            f"{ValidationState.selected_employee.get('nom', '')} {ValidationState.selected_employee.get('prenom', '')}",
+                            size=HEADING_MD["size"],
+                            weight=HEADING_MD["weight"],
+                            color=COLORS["primary-900"],
+                        ),
+                        rx.text(
+                            f"Matricule: {ValidationState.selected_employee.get('matricule', '')}",
+                            size=BODY_SM["size"],
+                            color=COLORS["neutral-600"],
+                        ),
+                        spacing="1",
+                        align="start",
                     ),
                     rx.dialog.close(
-                        rx.button("×", variant="ghost", on_click=ValidationState.close_edit_modal),
+                        rx.button(
+                            rx.icon("x", size=20),
+                            on_click=ValidationState.close_edit_modal,
+                            variant="ghost",
+                            size="2",
+                            style={
+                                "color": COLORS["neutral-600"],
+                                "_hover": {"bg": COLORS["neutral-100"]},
+                            },
+                        ),
                     ),
                     justify="between",
                     width="100%",
+                    align="start",
                 ),
 
                 # Error message
                 rx.cond(
                     ValidationState.error_message != "",
-                    rx.callout(
-                        ValidationState.error_message,
-                        icon="alert-circle",
-                        color_scheme="red",
+                    rx.box(
+                        rx.hstack(
+                            rx.icon("circle-alert", size=20, color=COLORS["error-600"]),
+                            rx.text(
+                                ValidationState.error_message,
+                                size=BODY_SM["size"],
+                                color=COLORS["error-600"],
+                            ),
+                            spacing="2",
+                        ),
+                        bg=COLORS["error-100"],
+                        border=f"1px solid {COLORS['error-600']}",
+                        border_radius=RADIUS["lg"],
+                        padding="1rem",
                     ),
                     rx.fragment(),
                 ),
 
                 # Summary stats
                 rx.grid(
-                    rx.vstack(
-                        rx.text("Brut", size="2", color="#6c757d"),
-                        rx.text(f"{ValidationState.selected_employee.get('salaire_brut', 0):,.2f} €", size="4", weight="bold"),
-                        spacing="1",
+                    rx.box(
+                        rx.vstack(
+                            rx.icon("euro", size=24, color=COLORS["primary-600"], stroke_width=2),
+                            rx.text(
+                                "Brut",
+                                size=LABEL["size"],
+                                weight=LABEL["weight"],
+                                color=COLORS["neutral-500"],
+                                text_transform=LABEL["text_transform"],
+                                letter_spacing=LABEL["letter_spacing"],
+                            ),
+                            rx.text(
+                                f"{ValidationState.selected_employee.get('salaire_brut', 0):,.2f} €",
+                                size=HEADING_SM["size"],
+                                weight="bold",
+                                color=COLORS["primary-900"],
+                                font_variant_numeric="tabular-nums",
+                            ),
+                            spacing="2",
+                            align="start",
+                        ),
+                        bg=COLORS["white"],
+                        border=f"1px solid {COLORS['neutral-200']}",
+                        border_radius=RADIUS["card"],
+                        padding=COMPONENT_SPACING["card_padding"],
+                        box_shadow=SHADOWS["card"],
                     ),
-                    rx.vstack(
-                        rx.text("Net", size="2", color="#6c757d"),
-                        rx.text(f"{ValidationState.selected_employee.get('salaire_net', 0):,.2f} €", size="4", weight="bold"),
-                        spacing="1",
+                    rx.box(
+                        rx.vstack(
+                            rx.icon("wallet", size=24, color=COLORS["success-600"], stroke_width=2),
+                            rx.text(
+                                "Net",
+                                size=LABEL["size"],
+                                weight=LABEL["weight"],
+                                color=COLORS["neutral-500"],
+                                text_transform=LABEL["text_transform"],
+                                letter_spacing=LABEL["letter_spacing"],
+                            ),
+                            rx.text(
+                                f"{ValidationState.selected_employee.get('salaire_net', 0):,.2f} €",
+                                size=HEADING_SM["size"],
+                                weight="bold",
+                                color=COLORS["success-600"],
+                                font_variant_numeric="tabular-nums",
+                            ),
+                            spacing="2",
+                            align="start",
+                        ),
+                        bg=COLORS["white"],
+                        border=f"1px solid {COLORS['neutral-200']}",
+                        border_radius=RADIUS["card"],
+                        padding=COMPONENT_SPACING["card_padding"],
+                        box_shadow=SHADOWS["card"],
                     ),
-                    rx.vstack(
-                        rx.text("Coût total", size="2", color="#6c757d"),
-                        rx.text(f"{ValidationState.selected_employee.get('cout_total_employeur', 0):,.2f} €", size="4", weight="bold"),
-                        spacing="1",
+                    rx.box(
+                        rx.vstack(
+                            rx.icon("receipt", size=24, color=COLORS["info-600"], stroke_width=2),
+                            rx.text(
+                                "Coût total",
+                                size=LABEL["size"],
+                                weight=LABEL["weight"],
+                                color=COLORS["neutral-500"],
+                                text_transform=LABEL["text_transform"],
+                                letter_spacing=LABEL["letter_spacing"],
+                            ),
+                            rx.text(
+                                f"{ValidationState.selected_employee.get('cout_total_employeur', 0):,.2f} €",
+                                size=HEADING_SM["size"],
+                                weight="bold",
+                                color=COLORS["info-600"],
+                                font_variant_numeric="tabular-nums",
+                            ),
+                            spacing="2",
+                            align="start",
+                        ),
+                        bg=COLORS["white"],
+                        border=f"1px solid {COLORS['neutral-200']}",
+                        border_radius=RADIUS["card"],
+                        padding=COMPONENT_SPACING["card_padding"],
+                        box_shadow=SHADOWS["card"],
                     ),
                     columns="3",
-                    spacing="4",
-                    margin_bottom="1rem",
+                    spacing=COMPONENT_SPACING["grid_gap"],
+                    width="100%",
                 ),
 
                 # Tabs
                 rx.tabs.root(
                     rx.tabs.list(
-                        rx.tabs.trigger("Éléments de salaire", value="salary"),
-                        rx.tabs.trigger("Charges sociales", value="charges"),
+                        rx.tabs.trigger(
+                            "Éléments de salaire",
+                            value="salary",
+                            style={
+                                "padding": "0.75rem 1.5rem",
+                                "font_weight": "500",
+                                "color": COLORS["neutral-600"],
+                                "border_bottom": "2px solid transparent",
+                                "_selected": {
+                                    "color": COLORS["primary-600"],
+                                    "border_bottom_color": COLORS["primary-600"],
+                                },
+                            },
+                        ),
+                        rx.tabs.trigger(
+                            "Charges sociales",
+                            value="charges",
+                            style={
+                                "padding": "0.75rem 1.5rem",
+                                "font_weight": "500",
+                                "color": COLORS["neutral-600"],
+                                "border_bottom": "2px solid transparent",
+                                "_selected": {
+                                    "color": COLORS["primary-600"],
+                                    "border_bottom_color": COLORS["primary-600"],
+                                },
+                            },
+                        ),
+                        style={
+                            "border_bottom": f"1px solid {COLORS['neutral-200']}",
+                        },
                     ),
                     rx.tabs.content(
                         salary_elements_tab(),
                         value="salary",
+                        style={"padding_top": "1.5rem"},
                     ),
                     rx.tabs.content(
                         charges_tab(),
                         value="charges",
+                        style={"padding_top": "1.5rem"},
                     ),
                     default_value="salary",
                     value=ValidationState.active_tab,
                     on_change=ValidationState.set_active_tab,
                 ),
 
-                rx.divider(),
+                rx.box(height="1px", bg=COLORS["neutral-200"], width="100%"),
 
                 # Modification reason
                 rx.vstack(
-                    rx.text("Raison de modification (requise)", weight="bold"),
+                    rx.text(
+                        "Raison de modification (requise)",
+                        size=BODY_SM["size"],
+                        weight="medium",
+                        color=COLORS["neutral-700"],
+                    ),
                     rx.text_area(
                         placeholder="Expliquez pourquoi ces modifications sont apportées...",
                         value=ValidationState.modification_reason,
                         on_change=ValidationState.set_modification_reason,
-                        width="100%",
+                        size="2",
+                        style={
+                            "width": "100%",
+                            "min_height": "100px",
+                            "bg": COLORS["white"],
+                            "border": f"1px solid {COLORS['neutral-300']}",
+                            "border_radius": RADIUS["lg"],
+                            "padding": "0.75rem",
+                            "_focus": {
+                                "border_color": COLORS["primary-500"],
+                                "box_shadow": SHADOWS["focus_ring"],
+                            },
+                        },
                     ),
                     spacing="2",
                     width="100%",
@@ -731,14 +875,33 @@ def edit_modal() -> rx.Component:
                     rx.cond(
                         ValidationState.edit_mode,
                         rx.button(
-                            "Annuler",
+                            "Annuler les modifications",
                             on_click=ValidationState.toggle_edit,
-                            variant="soft",
+                            size="2",
+                            style={
+                                "bg": COLORS["white"],
+                                "color": COLORS["neutral-700"],
+                                "border": f"1px solid {COLORS['neutral-300']}",
+                                "border_radius": RADIUS["lg"],
+                                "padding": "0.625rem 1rem",
+                                "_hover": {"bg": COLORS["neutral-50"]},
+                            },
                         ),
                         rx.button(
-                            "Modifier",
+                            rx.hstack(
+                                rx.icon("pencil", size=16),
+                                rx.text("Modifier"),
+                                spacing="2",
+                            ),
                             on_click=ValidationState.toggle_edit,
-                            variant="soft",
+                            size="2",
+                            style={
+                                "bg": COLORS["primary-600"],
+                                "color": COLORS["white"],
+                                "border_radius": RADIUS["lg"],
+                                "padding": "0.625rem 1rem",
+                                "_hover": {"bg": COLORS["primary-700"]},
+                            },
                         ),
                     ),
                     rx.cond(
@@ -746,109 +909,301 @@ def edit_modal() -> rx.Component:
                         rx.button(
                             rx.cond(
                                 ValidationState.is_loading,
-                                rx.spinner(size="3"),
-                                rx.text("Recalculer"),
+                                rx.spinner(size="2"),
+                                rx.hstack(
+                                    rx.icon("calculator", size=16),
+                                    rx.text("Recalculer"),
+                                    spacing="2",
+                                ),
                             ),
                             on_click=ValidationState.recalculate_payslip,
                             disabled=ValidationState.is_loading,
-                            variant="outline",
+                            size="2",
+                            style={
+                                "bg": COLORS["white"],
+                                "color": COLORS["primary-600"],
+                                "border": f"1px solid {COLORS['primary-300']}",
+                                "border_radius": RADIUS["lg"],
+                                "padding": "0.625rem 1rem",
+                                "_hover": {"bg": COLORS["primary-50"]},
+                                "_disabled": {
+                                    "bg": COLORS["neutral-100"],
+                                    "cursor": "not-allowed",
+                                },
+                            },
                         ),
                         rx.fragment(),
                     ),
                     rx.button(
                         rx.cond(
                             ValidationState.is_loading,
-                            rx.spinner(size="3"),
-                            rx.text("Enregistrer"),
+                            rx.spinner(size="2"),
+                            rx.hstack(
+                                rx.icon("save", size=16),
+                                rx.text("Enregistrer"),
+                                spacing="2",
+                            ),
                         ),
                         on_click=ValidationState.save_modifications,
                         disabled=ValidationState.is_loading,
+                        size="2",
+                        style={
+                            "bg": COLORS["success-600"],
+                            "color": COLORS["white"],
+                            "border_radius": RADIUS["lg"],
+                            "padding": "0.625rem 1rem",
+                            "box_shadow": SHADOWS["button"],
+                            "_hover": {
+                                "bg": COLORS["success-500"],
+                                "box_shadow": SHADOWS["button_hover"],
+                            },
+                            "_disabled": {
+                                "bg": COLORS["neutral-300"],
+                                "cursor": "not-allowed",
+                            },
+                        },
                     ),
                     spacing="3",
                     justify="end",
                     width="100%",
                 ),
 
-                spacing="4",
+                spacing="5",
                 width="100%",
             ),
-            max_width="900px",
-            max_height="80vh",
+            max_width="1000px",
+            max_height="85vh",
             overflow_y="auto",
+            style={
+                "padding": "2rem",
+                "bg": COLORS["neutral-50"],
+                "border_radius": RADIUS["2xl"],
+            },
         ),
         open=ValidationState.show_edit_modal,
     )
 
 
 def employee_card(emp: Dict) -> rx.Component:
-    """Render employee card."""
+    """Premium employee card."""
+    # Determine status and styling (use Vars for conditionals)
+    is_edge_case = emp.get("edge_case_flag", False)
+    is_validated = emp.get("statut_validation", False)
+
     return rx.box(
         rx.vstack(
+            # Header with name and status
             rx.hstack(
-                rx.heading(
-                    f"{emp['nom']} {emp['prenom']} - {emp['matricule']}",
-                    size="5",
+                rx.hstack(
+                    rx.icon("user", size=20, color=COLORS["primary-600"], stroke_width=2),
+                    rx.vstack(
+                        rx.heading(
+                            f"{emp['nom']} {emp['prenom']}",
+                            size=HEADING_SM["size"],
+                            weight=HEADING_SM["weight"],
+                            color=COLORS["primary-900"],
+                        ),
+                        rx.text(
+                            f"Matricule: {emp['matricule']}",
+                            size=BODY_SM["size"],
+                            color=COLORS["neutral-600"],
+                        ),
+                        spacing="1",
+                        align="start",
+                    ),
+                    spacing="3",
                 ),
+                # Status badge
                 rx.cond(
-                    emp.get("edge_case_flag"),
-                    rx.badge("⚠️ À vérifier", color_scheme="orange"),
+                    is_edge_case,
+                    rx.box(
+                        rx.hstack(
+                            rx.icon("triangle-alert", size=16, color=COLORS["warning-600"]),
+                            rx.text("À vérifier", size="1", weight="medium"),
+                            spacing="1",
+                        ),
+                        bg=COLORS["warning-100"],
+                        color=COLORS["warning-600"],
+                        border=f"1px solid {COLORS['warning-300']}",
+                        border_radius=RADIUS["badge"],
+                        padding="0.375rem 0.75rem",
+                    ),
                     rx.cond(
-                        emp.get("statut_validation"),
-                        rx.badge("✓ Validé", color_scheme="green"),
-                        rx.badge("⏳ En attente", color_scheme="gray"),
+                        is_validated,
+                        rx.box(
+                            rx.hstack(
+                                rx.icon("circle-check", size=16, color=COLORS["success-600"]),
+                                rx.text("Validé", size="1", weight="medium"),
+                                spacing="1",
+                            ),
+                            bg=COLORS["success-100"],
+                            color=COLORS["success-600"],
+                            border=f"1px solid {COLORS['success-300']}",
+                            border_radius=RADIUS["badge"],
+                            padding="0.375rem 0.75rem",
+                        ),
+                        rx.box(
+                            rx.hstack(
+                                rx.icon("clock", size=16, color=COLORS["neutral-500"]),
+                                rx.text("En attente", size="1", weight="medium"),
+                                spacing="1",
+                            ),
+                            bg=COLORS["neutral-100"],
+                            color=COLORS["neutral-600"],
+                            border=f"1px solid {COLORS['neutral-300']}",
+                            border_radius=RADIUS["badge"],
+                            padding="0.375rem 0.75rem",
+                        ),
                     ),
                 ),
                 justify="between",
                 width="100%",
+                align="center",
             ),
 
+            # Edge case reason
             rx.cond(
-                emp.get("edge_case_flag"),
-                rx.callout(
-                    emp.get("edge_case_reason", ""),
-                    icon="alert-circle",
-                    color_scheme="yellow",
+                is_edge_case,
+                rx.box(
+                    rx.hstack(
+                        rx.icon("info", size=16, color=COLORS["warning-600"]),
+                        rx.text(
+                            emp.get("edge_case_reason", ""),
+                            size=BODY_SM["size"],
+                            color=COLORS["warning-600"],
+                        ),
+                        spacing="2",
+                    ),
+                    bg=COLORS["warning-100"],
+                    border=f"1px solid {COLORS['warning-600']}",
+                    border_radius=RADIUS["lg"],
+                    padding="0.75rem",
                 ),
                 rx.fragment(),
             ),
 
+            # Metrics grid
             rx.grid(
                 rx.vstack(
-                    rx.text("Salaire brut", size="2", color="#6c757d"),
-                    rx.text(f"{emp.get('salaire_brut', 0):,.2f} €", size="4", weight="bold"),
+                    rx.text(
+                        "Salaire brut",
+                        size=LABEL["size"],
+                        weight=LABEL["weight"],
+                        color=COLORS["neutral-500"],
+                        text_transform=LABEL["text_transform"],
+                        letter_spacing=LABEL["letter_spacing"],
+                    ),
+                    rx.text(
+                        f"{emp.get('salaire_brut', 0):,.2f} €",
+                        size=HEADING_SM["size"],
+                        weight="bold",
+                        color=COLORS["primary-900"],
+                        font_variant_numeric="tabular-nums",
+                    ),
                     spacing="1",
+                    align="start",
                 ),
                 rx.vstack(
-                    rx.text("Charges salariales", size="2", color="#6c757d"),
-                    rx.text(f"{emp.get('total_charges_salariales', 0):,.2f} €", size="4", weight="bold"),
+                    rx.text(
+                        "Charges salariales",
+                        size=LABEL["size"],
+                        weight=LABEL["weight"],
+                        color=COLORS["neutral-500"],
+                        text_transform=LABEL["text_transform"],
+                        letter_spacing=LABEL["letter_spacing"],
+                    ),
+                    rx.text(
+                        f"{emp.get('total_charges_salariales', 0):,.2f} €",
+                        size=HEADING_SM["size"],
+                        weight="bold",
+                        color=COLORS["neutral-700"],
+                        font_variant_numeric="tabular-nums",
+                    ),
                     spacing="1",
+                    align="start",
                 ),
                 rx.vstack(
-                    rx.text("Salaire net", size="2", color="#6c757d"),
-                    rx.text(f"{emp.get('salaire_net', 0):,.2f} €", size="4", weight="bold"),
+                    rx.text(
+                        "Salaire net",
+                        size=LABEL["size"],
+                        weight=LABEL["weight"],
+                        color=COLORS["neutral-500"],
+                        text_transform=LABEL["text_transform"],
+                        letter_spacing=LABEL["letter_spacing"],
+                    ),
+                    rx.text(
+                        f"{emp.get('salaire_net', 0):,.2f} €",
+                        size=HEADING_SM["size"],
+                        weight="bold",
+                        color=COLORS["success-600"],
+                        font_variant_numeric="tabular-nums",
+                    ),
                     spacing="1",
+                    align="start",
                 ),
                 rx.vstack(
-                    rx.text("Coût total", size="2", color="#6c757d"),
-                    rx.text(f"{emp.get('cout_total_employeur', 0):,.2f} €", size="4", weight="bold"),
+                    rx.text(
+                        "Coût total",
+                        size=LABEL["size"],
+                        weight=LABEL["weight"],
+                        color=COLORS["neutral-500"],
+                        text_transform=LABEL["text_transform"],
+                        letter_spacing=LABEL["letter_spacing"],
+                    ),
+                    rx.text(
+                        f"{emp.get('cout_total_employeur', 0):,.2f} €",
+                        size=HEADING_SM["size"],
+                        weight="bold",
+                        color=COLORS["info-600"],
+                        font_variant_numeric="tabular-nums",
+                    ),
                     spacing="1",
+                    align="start",
                 ),
                 columns="4",
-                spacing="4",
+                spacing=COMPONENT_SPACING["grid_gap"],
+                width="100%",
             ),
 
+            # Action buttons
             rx.hstack(
                 rx.button(
-                    "Modifier",
+                    rx.hstack(
+                        rx.icon("pencil", size=16),
+                        rx.text("Modifier"),
+                        spacing="2",
+                    ),
                     on_click=ValidationState.select_employee(emp["matricule"]),
-                    variant="soft",
+                    size="2",
+                    style={
+                        "bg": COLORS["white"],
+                        "color": COLORS["primary-600"],
+                        "border": f"1px solid {COLORS['primary-300']}",
+                        "border_radius": RADIUS["lg"],
+                        "padding": "0.625rem 1rem",
+                        "_hover": {
+                            "bg": COLORS["primary-50"],
+                            "border_color": COLORS["primary-400"],
+                        },
+                    },
                 ),
                 rx.cond(
-                    ~emp.get("statut_validation"),
+                    ~is_validated,
                     rx.button(
-                        "Valider",
+                        rx.hstack(
+                            rx.icon("circle-check", size=16),
+                            rx.text("Valider"),
+                            spacing="2",
+                        ),
                         on_click=ValidationState.validate_employee(emp["matricule"]),
-                        variant="solid",
+                        size="2",
+                        style={
+                            "bg": COLORS["success-600"],
+                            "color": COLORS["white"],
+                            "border_radius": RADIUS["lg"],
+                            "padding": "0.625rem 1rem",
+                            "_hover": {"bg": COLORS["success-500"]},
+                        },
                     ),
                     rx.fragment(),
                 ),
@@ -858,29 +1213,66 @@ def employee_card(emp: Dict) -> rx.Component:
             spacing="4",
             width="100%",
         ),
-        bg="white",
-        padding="1.5rem",
-        border_radius="8px",
-        box_shadow="0 2px 8px rgba(0,0,0,0.1)",
+        bg=COLORS["white"],
+        border=rx.cond(
+            is_edge_case,
+            f"2px solid {COLORS['error-300']}",
+            f"2px solid {COLORS['neutral-200']}",
+        ),
+        border_radius=RADIUS["card"],
+        padding=COMPONENT_SPACING["card_padding_lg"],
+        box_shadow=SHADOWS["card"],
+        transition="all 0.25s ease",
+        _hover={
+            "box_shadow": SHADOWS["card_hover"],
+            "transform": rx.cond(is_edge_case, "none", "translateY(-2px)"),
+        },
     )
 
 
 def index() -> rx.Component:
-    """Validation page."""
+    """Premium validation page."""
     return rx.fragment(
         navbar(),
         rx.hstack(
             sidebar_nav(),
             rx.box(
                 rx.vstack(
-                    rx.heading("Validation", size="8", margin_bottom="1rem"),
+                    # Page header
+                    rx.vstack(
+                        rx.heading(
+                            "Validation des bulletins",
+                            size=HEADING_XL["size"],
+                            weight=HEADING_XL["weight"],
+                            letter_spacing=HEADING_XL["letter_spacing"],
+                            color=COLORS["primary-900"],
+                        ),
+                        rx.text(
+                            "Vérifiez et validez les bulletins de paie calculés",
+                            size=BODY_MD["size"],
+                            color=COLORS["neutral-600"],
+                        ),
+                        spacing="2",
+                        align="start",
+                    ),
 
+                    # Selection warning
                     rx.cond(
                         ~GlobalState.has_selection,
-                        rx.callout(
-                            "Sélectionnez d'abord une société et une période",
-                            icon="alert-circle",
-                            color_scheme="red",
+                        rx.box(
+                            rx.hstack(
+                                rx.icon("circle-alert", size=20, color=COLORS["warning-600"]),
+                                rx.text(
+                                    "Sélectionnez d'abord une société et une période",
+                                    size=BODY_SM["size"],
+                                    color=COLORS["warning-600"],
+                                ),
+                                spacing="2",
+                            ),
+                            bg=COLORS["warning-100"],
+                            border=f"1px solid {COLORS['warning-600']}",
+                            border_radius=RADIUS["lg"],
+                            padding="1rem",
                         ),
                         rx.fragment(),
                     ),
@@ -888,59 +1280,127 @@ def index() -> rx.Component:
                     # Error message
                     rx.cond(
                         ValidationState.error_message != "",
-                        rx.callout(
-                            ValidationState.error_message,
-                            icon="alert-circle",
-                            color_scheme="red",
+                        rx.box(
+                            rx.hstack(
+                                rx.icon("circle-alert", size=20, color=COLORS["error-600"]),
+                                rx.text(
+                                    ValidationState.error_message,
+                                    size=BODY_SM["size"],
+                                    color=COLORS["error-600"],
+                                ),
+                                spacing="2",
+                            ),
+                            bg=COLORS["error-100"],
+                            border=f"1px solid {COLORS['error-600']}",
+                            border_radius=RADIUS["lg"],
+                            padding="1rem",
                         ),
                         rx.fragment(),
                     ),
 
-                    # Filters
-                    rx.hstack(
-                        rx.input(
-                            placeholder="Rechercher (ID, nom)",
-                            value=ValidationState.search_query,
-                            on_change=ValidationState.set_search,
-                        ),
-                        rx.select(
-                            ["Tous", "À vérifier", "Validés"],
-                            value=ValidationState.status_filter,
-                            on_change=ValidationState.set_filter,
-                        ),
-                        rx.box(
-                            rx.hstack(
-                                rx.text("Cas particuliers:", size="3"),
-                                rx.badge(ValidationState.edge_case_count, color_scheme="red"),
-                                spacing="2",
+                    # Filters bar
+                    rx.box(
+                        rx.hstack(
+                            rx.input(
+                                placeholder="Rechercher par nom ou matricule...",
+                                value=ValidationState.search_query,
+                                on_change=ValidationState.set_search,
+                                size="2",
+                                style={
+                                    "flex": "1",
+                                    "bg": COLORS["white"],
+                                    "border": f"1px solid {COLORS['neutral-300']}",
+                                    "border_radius": RADIUS["lg"],
+                                    "padding": "0.625rem 1rem",
+                                    "_focus": {
+                                        "border_color": COLORS["primary-500"],
+                                        "box_shadow": SHADOWS["focus_ring"],
+                                    },
+                                },
                             ),
+                            rx.select(
+                                ["Tous", "À vérifier", "Validés"],
+                                value=ValidationState.status_filter,
+                                on_change=ValidationState.set_filter,
+                                size="2",
+                                style={
+                                    "width": "180px",
+                                    "bg": COLORS["white"],
+                                    "border": f"1px solid {COLORS['neutral-300']}",
+                                    "border_radius": RADIUS["lg"],
+                                    "_hover": {"border_color": COLORS["primary-300"]},
+                                },
+                            ),
+                            rx.box(
+                                rx.hstack(
+                                    rx.icon("triangle-alert", size=20, color=COLORS["error-600"], stroke_width=2),
+                                    rx.text(
+                                        "Cas particuliers:",
+                                        size=BODY_SM["size"],
+                                        weight="medium",
+                                        color=COLORS["neutral-700"],
+                                    ),
+                                    rx.box(
+                                        rx.text(
+                                            ValidationState.edge_case_count,
+                                            size="1",
+                                            weight="bold",
+                                        ),
+                                        bg=COLORS["error-100"],
+                                        color=COLORS["error-600"],
+                                        border=f"1px solid {COLORS['error-300']}",
+                                        border_radius=RADIUS["badge"],
+                                        padding="0.25rem 0.625rem",
+                                    ),
+                                    spacing="2",
+                                ),
+                                padding="0.625rem 1rem",
+                                bg=COLORS["neutral-50"],
+                                border=f"1px solid {COLORS['neutral-200']}",
+                                border_radius=RADIUS["lg"],
+                            ),
+                            spacing="3",
+                            width="100%",
+                            align="center",
                         ),
-                        spacing="4",
-                        width="100%",
+                        bg=COLORS["white"],
+                        border=f"1px solid {COLORS['neutral-200']}",
+                        border_radius=RADIUS["card"],
+                        padding=COMPONENT_SPACING["card_padding"],
+                        box_shadow=SHADOWS["card"],
                     ),
 
-                    rx.divider(),
-
-                    # Loading indicator
+                    # Loading indicator or employee list
                     rx.cond(
                         ValidationState.is_loading,
                         rx.center(
-                            rx.spinner(size="3"),
-                            padding="2rem",
+                            rx.vstack(
+                                rx.spinner(size="3", color=COLORS["primary-600"]),
+                                rx.text(
+                                    "Chargement des employés...",
+                                    size=BODY_SM["size"],
+                                    color=COLORS["neutral-600"],
+                                ),
+                                spacing="3",
+                            ),
+                            padding="4rem",
                         ),
-                        # Employee list
-                        rx.foreach(
-                            ValidationState.filtered_employees,
-                            employee_card,
+                        rx.vstack(
+                            rx.foreach(
+                                ValidationState.filtered_employees,
+                                employee_card,
+                            ),
+                            spacing=COMPONENT_SPACING["section_gap"],
+                            width="100%",
                         ),
                     ),
 
-                    spacing="5",
-                    padding="2rem",
+                    spacing=COMPONENT_SPACING["section_gap"],
                     width="100%",
                 ),
                 flex="1",
-                overflow_y="auto",
+                padding=COMPONENT_SPACING["page_padding"],
+                min_height="calc(100vh - 64px)",
             ),
             spacing="0",
             width="100%",

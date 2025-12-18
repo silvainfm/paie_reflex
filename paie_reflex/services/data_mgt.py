@@ -4,6 +4,7 @@ import polars as pl
 from pathlib import Path
 from typing import List, Optional, Dict
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 
 class DataManager:
@@ -92,21 +93,17 @@ class DataManager:
     
     @classmethod
     def get_available_period_strings(cls, company_id: str) -> List[str]:
-        """Get available periods for company."""
-        conn = cls._get_connection()
-        try:
-            result = conn.execute("""
-                SELECT DISTINCT period_month, period_year 
-                FROM payroll_data 
-                WHERE company_id = ?
-                ORDER BY period_year DESC, period_month DESC
-            """, [company_id]).fetchall()
-            
-            return [f"{month:02d}-{year}" for month, year in result]
-        except:
-            return []
-        finally:
-            conn.close()
+        """Get last 11 months as available periods."""
+        # Generate last 11 months from current month
+        periods = []
+        current_date = datetime.now()
+
+        for i in range(11):
+            period_date = current_date - relativedelta(months=i)
+            period_str = period_date.strftime("%m-%Y")
+            periods.append(period_str)
+
+        return periods
     
     @classmethod
     def load_period_data(cls, company_id: str, month: int, year: int) -> pl.DataFrame:

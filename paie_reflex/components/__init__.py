@@ -1,6 +1,23 @@
-"""Navigation components."""
+"""Components for Monaco Paie - Premium design system."""
 from .navigation import navbar, sidebar_nav, metric_card
+from .primitives import (
+    card,
+    metric_card as premium_metric_card,
+    button_primary,
+    button_secondary,
+    button_ghost,
+    text_input,
+    status_badge,
+    info_card,
+    section_heading,
+    page_heading,
+    label_text,
+    divider,
+    loading_spinner,
+    empty_state,
+)
 import reflex as rx
+from ..design_tokens import COMPONENT_SPACING, COLORS
 
 # Layout wrapper with navbar and sidebar
 def layout(*children) -> rx.Component:
@@ -12,8 +29,9 @@ def layout(*children) -> rx.Component:
             rx.box(
                 *children,
                 flex="1",
-                padding="2rem",
+                padding=COMPONENT_SPACING["page_padding"],
                 width="100%",
+                min_height="calc(100vh - 64px)",
             ),
             spacing="0",
             width="100%",
@@ -21,7 +39,7 @@ def layout(*children) -> rx.Component:
         ),
     )
 
-# Info box for displaying messages
+# Info box for displaying messages (legacy, prefer info_card from primitives)
 def info_box(title: str, message: str = "", icon: str = "info", color: str = "blue") -> rx.Component:
     """Display an info callout box."""
     return rx.callout(
@@ -34,4 +52,25 @@ def info_box(title: str, message: str = "", icon: str = "info", color: str = "bl
         color_scheme=color,
     )
 
-__all__ = ["navbar", "sidebar_nav", "metric_card", "layout", "info_box"]
+__all__ = [
+    "navbar",
+    "sidebar_nav",
+    "metric_card",
+    "layout",
+    "info_box",
+    # Primitives
+    "card",
+    "premium_metric_card",
+    "button_primary",
+    "button_secondary",
+    "button_ghost",
+    "text_input",
+    "status_badge",
+    "info_card",
+    "section_heading",
+    "page_heading",
+    "label_text",
+    "divider",
+    "loading_spinner",
+    "empty_state",
+]

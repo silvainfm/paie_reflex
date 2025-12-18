@@ -134,7 +134,7 @@ def index() -> rx.Component:
                         ~GlobalState.has_selection,
                         rx.callout(
                             "Sélectionnez d'abord une société et une période",
-                            icon="alert-circle",
+                            icon="circle-alert",
                             color_scheme="red",
                         ),
                         rx.fragment(),
@@ -215,12 +215,12 @@ def index() -> rx.Component:
                                     ExportState.employer_number,
                                     rx.callout(
                                         f"Numéro employeur: {ExportState.employer_number}",
-                                        icon="check-circle",
+                                        icon="circle-check",
                                         color_scheme="green",
                                     ),
                                     rx.callout(
                                         "Numéro employeur non configuré. Définir dans Config → Société",
-                                        icon="alert-circle",
+                                        icon="circle-alert",
                                         color_scheme="red",
                                     ),
                                 ),
@@ -279,7 +279,7 @@ def index() -> rx.Component:
                         ExportState.export_status,
                         rx.callout(
                             ExportState.export_status,
-                            icon="check-circle",
+                            icon="circle-check",
                             color_scheme="green",
                         ),
                         rx.fragment(),

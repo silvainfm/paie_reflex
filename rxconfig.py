@@ -15,4 +15,6 @@ config = rx.Config(
     timeout=600,
     # Disable telemetry in development
     telemetry_enabled=False,
+    # Disable sitemap plugin (not needed for internal app)
+    disable_plugins=['reflex.plugins.sitemap.SitemapPlugin'],
 )

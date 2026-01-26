@@ -5,14 +5,14 @@ Includes all Monaco-specific payroll calculations, social charges, and tax rules
 Rates are loaded from CSV files for easy yearly updates
 """
 
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
-from datetime import date, datetime
-from decimal import Decimal, ROUND_HALF_UP
-import polars as pl
-import os
-from pathlib import Path
 import math
+from dataclasses import dataclass
+from datetime import date, datetime
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+import polars as pl
+
 
 @dataclass
 class MonacoPayrollConstants:
@@ -159,7 +159,7 @@ class ChargesSocialesMonaco:
     def _load_rates_from_csv(self):
         """Load social charge rates from unified CSV file"""
         csv_path = Path("data/config") / "payroll_rates.csv"
-        
+
         # Default rates for fallback
         default_salarial = {
             'CAR': {'taux': 6.85, 'plafond': None, 'description': 'Caisse Autonome des Retraites'},
@@ -172,7 +172,7 @@ class ChargesSocialesMonaco:
             'CONTRIB_EQUILIBRE_GEN_T1': {'taux': 0.86, 'plafond': 'T1', 'description': 'Contribution équilibre général T1'},
             'CONTRIB_EQUILIBRE_GEN_T2': {'taux': 1.08, 'plafond': 'T2', 'description': 'Contribution équilibre général T2'}
         }
-        
+
         default_patronal = {
             'CAR': {'taux': 8.35, 'plafond': None, 'description': 'Caisse Autonome des Retraites'},
             'CMRC': {'taux': 5.22, 'plafond': None, 'description': 'Caisse Monégasque de Retraite Complémentaire'},
@@ -185,7 +185,7 @@ class ChargesSocialesMonaco:
             'CONTRIB_EQUILIBRE_GEN_T2': {'taux': 1.62, 'plafond': 'T2', 'description': 'Contribution équilibre général T2'},
             'PREVOYANCE': {'taux': 1.50, 'plafond': None, 'description': 'Prévoyance collective'}
         }
-        
+
 
         if csv_path.exists():
             try:
@@ -275,23 +275,23 @@ class ChargesSocialesMonaco:
             # Créer le CSV par défaut et utiliser les valeurs par défaut
             self.COTISATIONS_SALARIALES = default_salarial
             self.COTISATIONS_PATRONALES = default_patronal
-            constants = MonacoPayrollConstants(self.year)  # Génère le CSV par défaut
+            MonacoPayrollConstants(self.year)  # Génère le CSV par défaut
 
-    
+
     @classmethod
     def calculate_base_tranches(cls, salaire_brut: float, year: int = None) -> Dict[str, float]:
         """Calculer les bases de cotisation par tranche"""
         constants = MonacoPayrollConstants(year)
-        
+
         tranches = {
             'T1': min(salaire_brut, constants.PLAFOND_SS_T1),
-            'T2': max(0, min(salaire_brut - constants.PLAFOND_SS_T1, 
+            'T2': max(0, min(salaire_brut - constants.PLAFOND_SS_T1,
                            constants.PLAFOND_SS_T2 - constants.PLAFOND_SS_T1)),
             'TOTAL': salaire_brut
         }
-        
+
         return tranches
-    
+
     def calculate_cotisations(self, salaire_brut: float,
                             type_cotisation: str = 'salariales',
                             cumul_brut_annuel: float = 0.0) -> Dict[str, float]:
@@ -361,7 +361,7 @@ class ChargesSocialesMonaco:
         else:
             # Partially exceeds plafond - only charge the portion within plafond
             return plafond - cumul_brut_annuel
-    
+
     def calculate_total_charges(self, salaire_brut: float, cumul_brut_annuel: float = 0.0) -> Tuple[float, float, Dict]:
         """
         Calculer le total des charges salariales et patronales
@@ -409,7 +409,7 @@ class CalculateurPaieMonaco:
         self.month = month
         self.constants = MonacoPayrollConstants(year)
         self.charges_calculator = ChargesSocialesMonaco(year, month)
-    
+
     def calculate_hourly_rate(self, salaire_base: float, base_heures: float = None) -> float:
         """Calculer le taux horaire"""
         if base_heures is None:
@@ -417,20 +417,20 @@ class CalculateurPaieMonaco:
         if base_heures == 0:
             return 0
         return salaire_base / base_heures
-    
-    def calculate_overtime(self, hourly_rate: float, 
-                          heures_sup_125: float = 0, 
+
+    def calculate_overtime(self, hourly_rate: float,
+                          heures_sup_125: float = 0,
                           heures_sup_150: float = 0) -> float:
         """Calculer les heures supplémentaires"""
         montant_125 = heures_sup_125 * hourly_rate * self.constants.TAUX_HS_125
         montant_150 = heures_sup_150 * hourly_rate * self.constants.TAUX_HS_150
         return round(montant_125 + montant_150, 2)
-    
+
     def calculate_absences(self, hourly_rate: float, heures_absence: float,
                           type_absence: str = 'non_payee') -> float:
         """
         Calculer les retenues pour absence
-        
+
         Args:
             hourly_rate: Taux horaire
             heures_absence: Nombre d'heures d'absence
@@ -442,29 +442,29 @@ class CalculateurPaieMonaco:
             return 0  # Les congés payés sont calculés séparément
         else:
             return round(heures_absence * hourly_rate, 2)
-    
+
     def calculate_prime(self, prime_amount: float, type_prime: str) -> Dict:
         """
         Calculer les primes et leur traitement social/fiscal
-        
+
         Args:
             prime_amount: Montant de la prime
             type_prime: Type de prime (performance, anciennete, 13eme_mois, etc.)
         """
         # Certaines primes peuvent avoir des traitements spéciaux
         soumis_cotisations = True
-        
+
         if type_prime == 'transport':
             # Exonération partielle possible
             soumis_cotisations = prime_amount > 50  # Exemple de seuil
-        
+
         return {
             'montant': prime_amount,
             'type': type_prime,
             'soumis_cotisations': soumis_cotisations
         }
-    
-    def calculate_avantages_nature(self, logement: float = 0, 
+
+    def calculate_avantages_nature(self, logement: float = 0,
                                   transport: float = 0,
                                   autres: float = 0) -> float:
         """
@@ -472,18 +472,18 @@ class CalculateurPaieMonaco:
         Ces montants sont ajoutés au brut pour les cotisations
         """
         return logement + transport + autres
-    
+
     def calculate_tickets_restaurant(self, nombre_tickets: int) -> Dict:
         """
         Calculer la participation tickets restaurant
-        
+
         Returns:
             Dict avec part_salariale et part_patronale
         """
         valeur_totale = nombre_tickets * self.constants.TICKET_RESTO_VALEUR
         part_patronale = round(valeur_totale * self.constants.TICKET_RESTO_PART_PATRONALE, 2)
         part_salariale = round(valeur_totale * self.constants.TICKET_RESTO_PART_SALARIALE, 2)
-        
+
         return {
             'valeur_totale': valeur_totale,
             'part_patronale': part_patronale,
@@ -491,7 +491,7 @@ class CalculateurPaieMonaco:
             'nombre': nombre_tickets,
             'valeur_unitaire': self.constants.TICKET_RESTO_VALEUR
         }
-    
+
     def calculate_conges_payes(self, salaire_base: float, jours_pris: float) -> float:
         """
         Calculer l'indemnité de congés payés
@@ -501,13 +501,13 @@ class CalculateurPaieMonaco:
         # Calcul simplifié: salaire journalier x jours pris
         salaire_journalier = salaire_base / 30  # Approximation mensuelle
         return round(salaire_journalier * jours_pris, 2)
-    
+
     def calculate_provision_cp(self, salaire_base: float, jours_acquis: float) -> float:
         """Calculer la provision pour congés payés"""
         salaire_journalier = salaire_base / 30
         provision = salaire_journalier * jours_acquis * 1.1  # +10% pour charges
         return round(provision, 2)
-    
+
     def process_employee_payslip(self, employee_data: Dict,
                                 processing_date: date = None,
                                 cumul_brut_annuel: float = 0.0) -> Dict:
@@ -539,7 +539,7 @@ class CalculateurPaieMonaco:
             self.month = calc_month
             self.constants = MonacoPayrollConstants(calc_year)
             self.charges_calculator = ChargesSocialesMonaco(calc_year, calc_month)
-        
+
         # Extraction des données
         salaire_base = employee_data.get('salaire_base', 0)
         base_heures = employee_data.get('base_heures', self.constants.BASE_HEURES_LEGALE)
@@ -556,34 +556,34 @@ class CalculateurPaieMonaco:
         avantage_logement = employee_data.get('avantage_logement', 0)
         avantage_transport = employee_data.get('avantage_transport', 0)
         jours_conges_pris = employee_data.get('jours_conges_pris', 0)
-        
+
         # Calculs
         hourly_rate = self.calculate_hourly_rate(salaire_base, base_heures)
-        
+
         # Heures supplémentaires
         montant_heures_sup = self.calculate_overtime(hourly_rate, heures_sup_125, heures_sup_150)
-        
+
         # Jours fériés et dimanches (majorés à 100% généralement)
         montant_jours_feries = round(heures_jours_feries * hourly_rate * 2, 2)
         montant_dimanches = round(heures_dimanche * hourly_rate * 2, 2)
-        
+
         # Absences
         retenue_absence = self.calculate_absences(hourly_rate, heures_absence, type_absence)
-        
+
         # Primes
         prime_details = self.calculate_prime(prime, type_prime)
-        
+
         # Avantages en nature
         total_avantages_nature = self.calculate_avantages_nature(
             avantage_logement, avantage_transport
         )
-        
+
         # Tickets restaurant
         tickets_details = self.calculate_tickets_restaurant(tickets_restaurant)
-        
+
         # Congés payés
         indemnite_cp = self.calculate_conges_payes(salaire_base, jours_conges_pris)
-        
+
         # Calcul du salaire brut
         salaire_brut = (
             salaire_base +
@@ -608,7 +608,7 @@ class CalculateurPaieMonaco:
         charges_sal, charges_pat, charges_details = self.charges_calculator.calculate_total_charges(
             salaire_brut, cumul_brut_annuel
         )
-        
+
         # Ajout de la retenue tickets restaurant
         charges_sal += tickets_details.get('part_salariale', 0)
 
@@ -617,98 +617,98 @@ class CalculateurPaieMonaco:
 
         # Coût total employeur (includes prime_non_cotisable as it's paid by employer)
         cout_total = salaire_brut + charges_pat + tickets_details.get('part_patronale', 0) + prime_non_cotisable
-        
+
         return {
             'matricule': employee_data.get('matricule'),
             'nom': employee_data.get('nom'),
             'prenom': employee_data.get('prenom'),
-            
+
             # Éléments de salaire
             'salaire_base': salaire_base,
             'taux_horaire': hourly_rate,
             'heures_travaillees': base_heures,
             'base_heures': base_heures,
             'heures_payees': base_heures,
-            
+
             # Heures supplémentaires et majorations
             'heures_sup_125': heures_sup_125,
             'montant_hs_125': round(heures_sup_125 * hourly_rate * 1.25, 2),
             'heures_sup_150': heures_sup_150,
             'montant_hs_150': round(heures_sup_150 * hourly_rate * 1.50, 2),
             'total_heures_sup': montant_heures_sup,
-            
+
             # Jours spéciaux
             'heures_jours_feries': heures_jours_feries,
             'montant_jours_feries': montant_jours_feries,
             'heures_dimanche': heures_dimanche,
             'montant_dimanches': montant_dimanches,
-            
+
             # Absences
             'heures_absence': heures_absence,
             'type_absence': type_absence,
             'retenue_absence': retenue_absence,
-            
+
             # Primes et avantages
             'prime': prime,
             'type_prime': type_prime,
             'prime_non_cotisable': prime_non_cotisable,
             'avantages_nature': total_avantages_nature,
-            
+
             # Tickets restaurant
             'tickets_restaurant': tickets_restaurant,
             'tickets_restaurant_details': tickets_details,
-            
+
             # Congés payés
             'jours_cp_pris': jours_conges_pris,
             'indemnite_cp': indemnite_cp,
-            
+
             # Totaux
             'salaire_brut': round(salaire_brut, 2),
             'total_charges_salariales': round(charges_sal, 2),
             'total_charges_patronales': round(charges_pat, 2),
             'salaire_net': round(salaire_net, 2),
             'cout_total_employeur': round(cout_total, 2),
-            
+
             # Détails des charges
             'details_charges': charges_details,
-            
+
             # Year for rates used
             'calculation_year': calc_year
         }
 
 class ValidateurPaieMonaco:
     """Validateur et détecteur de cas particuliers"""
-    
+
     @staticmethod
     def validate_payslip(payslip_data: Dict, year: int = None) -> Tuple[bool, List[str]]:
         """
         Valider une fiche de paie et détecter les anomalies
-        
+
         Returns:
             Tuple (is_valid, list_of_issues)
         """
         if year is None:
             year = payslip_data.get('calculation_year', datetime.now().year)
-        
+
         constants = MonacoPayrollConstants(year)
         issues = []
-        
+
         # Vérifications de base
         if payslip_data.get('salaire_brut', 0) < constants.SMIC_HORAIRE * constants.BASE_HEURES_LEGALE:
             issues.append("Salaire inférieur au SMIC")
-        
+
         if payslip_data.get('salaire_brut', 0) > 100000:
             issues.append("Salaire très élevé - vérification recommandée")
-        
+
         # Heures supplémentaires excessives
         total_hs = payslip_data.get('heures_sup_125', 0) + payslip_data.get('heures_sup_150', 0)
         if total_hs > 48:  # Limite légale mensuelle
             issues.append(f"Heures supplémentaires excessives: {total_hs}h")
-        
+
         # Absences importantes
         if payslip_data.get('heures_absence', 0) > 80:
             issues.append("Nombre d'heures d'absence élevé")
-        
+
         # Cohérence des charges
         salaire_brut = payslip_data.get('salaire_brut', 0)
         if salaire_brut > 0:
@@ -717,61 +717,61 @@ class ValidateurPaieMonaco:
                 issues.append(f"Ratio charges salariales anormal: {ratio_charges:.1%}")
         else:
             issues.append("Salaire brut nul ou négatif")
-        
+
         # Cas de sortie
         if payslip_data.get('date_sortie'):
             issues.append("Salarié sortant - calcul au prorata à vérifier")
-        
+
         is_valid = len(issues) == 0
-        
+
         return is_valid, issues
 
 class GestionnaireCongesPayes:
     """Gestionnaire des congés payés selon la législation monégasque"""
-    
+
     JOURS_ACQUIS_PAR_MOIS = 2.5  # 2.5 jours ouvrables par mois
-    
+
     @classmethod
     def calculate_droits_cp(cls, date_entree: date, date_calcul: date) -> Dict:
         """
         Calculer les droits à congés payés
-        
+
         Returns:
             Dict avec jours_acquis, jours_pris, jours_restants
         """
         # Calcul des mois travaillés
         mois_travailles = (date_calcul.year - date_entree.year) * 12 + (date_calcul.month - date_entree.month)
-        
+
         # Droits acquis
         jours_acquis = mois_travailles * cls.JOURS_ACQUIS_PAR_MOIS
-        
+
         return {
             'mois_travailles': mois_travailles,
             'jours_acquis': jours_acquis,
             'jours_maximum_annuel': 30  # Maximum légal à Monaco
         }
-    
+
     @classmethod
     def calculate_provision_cp_global(cls, employees_df: pl.DataFrame) -> pl.DataFrame:
         """
         Calculer la provision globale pour congés payés
-        
+
         Args:
             employees_df: Polars DataFrame avec les données des employés
-            
+
         Returns:
             Polars DataFrame avec le calcul des provisions
         """
         provisions = []
-        
+
         for employee in employees_df.iter_rows(named=True):
             salaire_base = employee.get('salaire_base', 0)
             jours_acquis_non_pris = employee.get('cp_acquis', 0) - employee.get('cp_pris', 0)
-            
+
             # Provision = (salaire journalier * jours restants) * 1.45 (charges comprises)
             salaire_journalier = salaire_base / 30
             provision = salaire_journalier * jours_acquis_non_pris * 1.45
-            
+
             provisions.append({
                 'matricule': employee.get('matricule'),
                 'nom': employee.get('nom'),
@@ -782,26 +782,26 @@ class GestionnaireCongesPayes:
                 'salaire_base': salaire_base,
                 'provision_cp': round(provision, 2)
             })
-        
+
         return pl.DataFrame(provisions)
-    
+
 # Utility functions for managing rates
 def add_year_to_rates_csv(year: int):
     """Add a new year column to the existing rates CSV"""
     csv_path = Path("data/config") / "payroll_rates.csv"
-    
+
     if not csv_path.exists():
         # Create default CSV first
-        constants = MonacoPayrollConstants(year)
+        MonacoPayrollConstants(year)
         return
-    
+
     df = pl.read_csv(csv_path)
     new_col = f'taux_{year}'
-    
+
     if new_col in df.columns:
         print(f"Year {year} already exists in rates CSV")
         return
-    
+
     # Copy rates from the most recent year
     existing_years = [col for col in df.columns if col.startswith('taux_')]
     if existing_years:
@@ -810,14 +810,14 @@ def add_year_to_rates_csv(year: int):
     else:
         # Use defaults
         df = df.with_columns(pl.col('taux_2024').alias(new_col))  # Assuming 2024 is base year
-    
+
     df.write_csv(csv_path)
     print(f"Added year {year} to rates CSV with rates copied from previous year")
 
 def update_rate_in_csv(year: int, category: str, rate_type: str, code: str, new_rate: float):
     """
     Update a specific rate in the CSV
-    
+
     Args:
         year: The year to update
         category: 'CHARGE' or 'CONSTANT'
@@ -826,25 +826,25 @@ def update_rate_in_csv(year: int, category: str, rate_type: str, code: str, new_
         new_rate: The new rate value
     """
     csv_path = Path("data/config") / "payroll_rates.csv"
-    
+
     if not csv_path.exists():
         print("Rates CSV does not exist. Creating default...")
-        constants = MonacoPayrollConstants(year)
-        
+        MonacoPayrollConstants(year)
+
     df = pl.read_csv(csv_path)
     year_col = f'taux_{year}'
-    
+
     if year_col not in df.columns:
         print(f"Adding year {year} to CSV...")
         add_year_to_rates_csv(year)
         df = pl.read_csv(csv_path)
-    
+
     # Find the row to update
     if category == 'CONSTANT':
         mask = (df['category'] == category) & (df['code'] == code)
     else:  # CHARGE
         mask = (df['category'] == category) & (df['type'] == rate_type) & (df['code'] == code)
-    
+
     if mask.any():
         df = df.with_columns(pl.when(mask).then(new_rate).otherwise(pl.col(year_col)).alias(year_col))
         df.write_csv(csv_path)
@@ -855,33 +855,33 @@ def update_rate_in_csv(year: int, category: str, rate_type: str, code: str, new_
 def display_rates_for_year(year: int):
     """Display all rates for a specific year"""
     csv_path = Path("data/config") / "payroll_rates.csv"
-    
+
     if not csv_path.exists():
         print("Rates CSV does not exist")
         return
-    
+
     df = pl.read_csv(csv_path)
     year_col = f'taux_{year}'
-    
+
     if year_col not in df.columns:
         print(f"No rates for year {year}")
         return
-    
+
     print(f"\n=== RATES FOR {year} ===")
-    
+
     # Display constants
     print("\nCONSTANTS:")
     constants_df = df.filter(pl.col('category') == 'CONSTANT')
     for row in constants_df.iter_rows(named=True):
         print(f"  {row['code']}: {row[year_col]} - {row['description']}")
-    
+
     # Display salarial charges
     print("\nSALARIAL CHARGES:")
     salarial_df = df.filter((pl.col('category') == 'CHARGE') & (pl.col('type') == 'SALARIAL'))
     for row in salarial_df.iter_rows(named=True):
         plafond_str = f" (Plafond: {row['plafond']})" if row['plafond'] != 'None' else ""
         print(f"  {row['code']}: {row[year_col]}%{plafond_str} - {row['description']}")
-    
+
     # Display patronal charges
     print("\nPATRONAL CHARGES:")
     patronal_df = df.filter((pl.col('category') == 'CHARGE') & (pl.col('type') == 'PATRONAL'))
@@ -896,19 +896,19 @@ if __name__ == "__main__":
     if not csv_path.exists():
         print("Creating default rates CSV...")
         constants = MonacoPayrollConstants(2024)
-    
+
     # Display current rates
     display_rates_for_year(2024)
     display_rates_for_year(2025)
-    
+
     # Example: Update CAR rate for 2025
     print("\n=== Updating CAR salarial rate to 6.90% for 2025 ===")
     update_rate_in_csv(2025, 'CHARGE', 'SALARIAL', 'CAR', 6.90)
-    
+
     # Test with an employee for 2024
     print("\n=== TESTING 2024 CALCULATION ===")
     calculateur_2024 = CalculateurPaieMonaco(year=2024)
-    
+
     employee_test = {
         'matricule': 'S000000001',
         'nom': 'DUPONT',
@@ -926,22 +926,22 @@ if __name__ == "__main__":
         'jours_conges_pris': 2,
         'period_year': 2024
     }
-    
+
     resultat_2024 = calculateur_2024.process_employee_payslip(employee_test)
-    
+
     print(f"Employé: {resultat_2024['nom']} {resultat_2024['prenom']}")
     print(f"Année de calcul: {resultat_2024['calculation_year']}")
     print(f"SALAIRE BRUT: {resultat_2024['salaire_brut']:.2f} €")
     print(f"Charges salariales: -{resultat_2024['total_charges_salariales']:.2f} €")
     print(f"  dont CAR: {resultat_2024['details_charges']['charges_salariales']['CAR']:.2f} €")
     print(f"SALAIRE NET: {resultat_2024['salaire_net']:.2f} €")
-    
+
     # Test with 2025 (with updated CAR rate)
     print("\n=== TESTING 2025 CALCULATION (with updated CAR) ===")
     calculateur_2025 = CalculateurPaieMonaco(year=2025)
     employee_test['period_year'] = 2025
     resultat_2025 = calculateur_2025.process_employee_payslip(employee_test)
-    
+
     print(f"Employé: {resultat_2025['nom']} {resultat_2025['prenom']}")
     print(f"Année de calcul: {resultat_2025['calculation_year']}")
     print(f"SALAIRE BRUT: {resultat_2025['salaire_brut']:.2f} €")

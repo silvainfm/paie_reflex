@@ -62,6 +62,9 @@ class ClientPortalState(rx.State):
     bulk_data: list[dict] = []
     bulk_status: str = ""
     
+    # Validation
+    validation_errors: list[str] = []
+    
     async def load_employees(self):
         """Load employees for current period."""
         global_state = await self.get_state(GlobalState)
@@ -189,12 +192,50 @@ class ClientPortalState(rx.State):
         """Update remarques field."""
         self.form_values["remarques"] = value
     
+    def validate_form(self) -> bool:
+        """Validate form values against field constraints."""
+        self.validation_errors = []
+        
+        for field, value in self.form_values.items():
+            if field not in EDITABLE_FIELDS:
+                continue
+            
+            config = EDITABLE_FIELDS[field]
+            
+            if config["type"] == "number" and value is not None:
+                try:
+                    num_val = float(value)
+                    min_val = config.get("min")
+                    max_val = config.get("max")
+                    
+                    if min_val is not None and num_val < min_val:
+                        self.validation_errors.append(f"{config['label']}: minimum {min_val}")
+                    if max_val is not None and num_val > max_val:
+                        self.validation_errors.append(f"{config['label']}: maximum {max_val}")
+                except (ValueError, TypeError):
+                    self.validation_errors.append(f"{config['label']}: valeur numérique invalide")
+        
+        # Cross-field validation
+        base_heures = self.form_values.get("base_heures", 169)
+        heures_absence = self.form_values.get("heures_absence", 0)
+        heures_cp = self.form_values.get("heures_conges_payes", 0)
+        
+        if heures_absence + heures_cp > base_heures:
+            self.validation_errors.append("Total absences + CP ne peut pas dépasser les heures de base")
+        
+        return len(self.validation_errors) == 0
+    
     async def save_employee_data(self):
         """Save employee data."""
         global_state = await self.get_state(GlobalState)
         
         if not self.selected_employee:
             self.status_message = "error:Sélectionnez un employé"
+            return
+        
+        # Validate first
+        if not self.validate_form():
+            self.status_message = f"error:Erreurs de validation: {'; '.join(self.validation_errors)}"
             return
         
         month, year = map(int, global_state.current_period.split('-'))
@@ -529,6 +570,24 @@ def individual_tab() -> rx.Component:
                     form_section("💰 Salaire et Primes", "salary"),
                     form_section("🎁 Avantages", "benefits"),
                     form_section("📋 Autres", "other"),
+                    
+                    # Validation errors
+                    rx.cond(
+                        ClientPortalState.validation_errors.length() > 0,
+                        rx.callout(
+                            rx.vstack(
+                                rx.text("Erreurs de validation:", font_weight="600"),
+                                rx.foreach(
+                                    ClientPortalState.validation_errors,
+                                    lambda err: rx.text(f"• {err}", size="2"),
+                                ),
+                                spacing="1",
+                                align="start",
+                            ),
+                            icon="alert-triangle",
+                            color_scheme="red",
+                        ),
+                    ),
                     
                     # Save button
                     rx.button(

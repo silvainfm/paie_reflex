@@ -58,6 +58,10 @@ class ClientPortalState(rx.State):
     total_absences: float = 0.0
     with_remarks: int = 0
     
+    # Bulk editing
+    bulk_data: list[dict] = []
+    bulk_status: str = ""
+    
     async def load_employees(self):
         """Load employees for current period."""
         global_state = await self.get_state(GlobalState)
@@ -235,6 +239,101 @@ class ClientPortalState(rx.State):
             
         except Exception as e:
             self.status_message = f"error:{str(e)}"
+    
+    async def load_bulk_data(self):
+        """Load data for bulk editing."""
+        global_state = await self.get_state(GlobalState)
+        
+        if not global_state.current_company or not global_state.current_period:
+            self.bulk_data = []
+            return
+        
+        month, year = map(int, global_state.current_period.split('-'))
+        df = DataManager.load_period_data(global_state.current_company, month, year)
+        
+        if not df.is_empty():
+            # Select only bulk-editable fields
+            cols = ["matricule", "nom", "prenom", "base_heures", "heures_conges_payes", 
+                    "heures_absence", "heures_sup_125", "heures_sup_150"]
+            available_cols = [c for c in cols if c in df.columns]
+            self.bulk_data = df.select(available_cols).to_dicts()
+        else:
+            self.bulk_data = []
+    
+    def update_bulk_field(self, matricule: str, field: str, value: str):
+        """Update a field in bulk data."""
+        for i, emp in enumerate(self.bulk_data):
+            if emp.get("matricule") == matricule:
+                try:
+                    self.bulk_data[i][field] = float(value) if value else 0.0
+                except ValueError:
+                    self.bulk_data[i][field] = 0.0
+                break
+    
+    async def save_bulk_data(self):
+        """Save all bulk edits."""
+        global_state = await self.get_state(GlobalState)
+        
+        if not self.bulk_data:
+            self.bulk_status = "error:Aucune donnée à sauvegarder"
+            return
+        
+        month, year = map(int, global_state.current_period.split('-'))
+        
+        try:
+            changes_count = 0
+            
+            # Load original data for comparison
+            original_df = DataManager.load_period_data(global_state.current_company, month, year)
+            original_dict = {row["matricule"]: row for row in original_df.to_dicts()} if not original_df.is_empty() else {}
+            
+            for emp in self.bulk_data:
+                matricule = emp.get("matricule")
+                original = original_dict.get(matricule, {})
+                
+                # Check each bulk field for changes
+                for field in ["base_heures", "heures_conges_payes", "heures_absence", "heures_sup_125", "heures_sup_150"]:
+                    new_val = emp.get(field, 0)
+                    old_val = original.get(field, 0)
+                    
+                    if str(new_val) != str(old_val):
+                        ClientInputsManager.save_client_input(
+                            company_id=global_state.current_company,
+                            year=year,
+                            month=month,
+                            matricule=matricule,
+                            field_name=field,
+                            field_value=str(new_val),
+                            entered_by=global_state.user
+                        )
+                        changes_count += 1
+            
+            # Update the database with bulk data
+            if not original_df.is_empty():
+                # Merge bulk edits with original data
+                bulk_df = pl.DataFrame(self.bulk_data)
+                
+                # Update original with bulk values
+                for field in ["base_heures", "heures_conges_payes", "heures_absence", "heures_sup_125", "heures_sup_150"]:
+                    if field in bulk_df.columns:
+                        original_df = original_df.join(
+                            bulk_df.select(["matricule", field]),
+                            on="matricule",
+                            how="left",
+                            suffix="_new"
+                        )
+                        if f"{field}_new" in original_df.columns:
+                            original_df = original_df.with_columns(
+                                pl.coalesce(pl.col(f"{field}_new"), pl.col(field)).alias(field)
+                            ).drop(f"{field}_new")
+                
+                DataManager.save_period_data(original_df, global_state.current_company, month, year)
+            
+            self.bulk_status = f"success:{changes_count} modification(s) enregistrée(s)"
+            await self.load_employees()
+            
+        except Exception as e:
+            self.bulk_status = f"error:{str(e)}"
     
     def set_tab(self, tab: str):
         """Switch active tab."""
@@ -497,6 +596,140 @@ def history_tab() -> rx.Component:
     )
 
 
+def bulk_row(emp: dict) -> rx.Component:
+    """Render a row in the bulk edit table."""
+    return rx.table.row(
+        rx.table.cell(emp.get("matricule", "")),
+        rx.table.cell(f"{emp.get('nom', '')} {emp.get('prenom', '')}"),
+        rx.table.cell(
+            rx.input(
+                type="number",
+                default_value=str(emp.get("base_heures", 169)),
+                width="80px",
+                size="1",
+            ),
+        ),
+        rx.table.cell(
+            rx.input(
+                type="number",
+                default_value=str(emp.get("heures_conges_payes", 0)),
+                width="60px",
+                size="1",
+            ),
+        ),
+        rx.table.cell(
+            rx.input(
+                type="number",
+                default_value=str(emp.get("heures_absence", 0)),
+                width="60px",
+                size="1",
+            ),
+        ),
+        rx.table.cell(
+            rx.input(
+                type="number",
+                default_value=str(emp.get("heures_sup_125", 0)),
+                width="60px",
+                size="1",
+            ),
+        ),
+        rx.table.cell(
+            rx.input(
+                type="number",
+                default_value=str(emp.get("heures_sup_150", 0)),
+                width="60px",
+                size="1",
+            ),
+        ),
+    )
+
+
+def bulk_tab() -> rx.Component:
+    """Bulk editing tab."""
+    return rx.box(
+        rx.vstack(
+            rx.hstack(
+                rx.text("📋 Saisie groupée - Heures", font_weight="600", size="4"),
+                rx.spacer(),
+                rx.button(
+                    "🔄 Charger",
+                    on_click=ClientPortalState.load_bulk_data,
+                    variant="outline",
+                    size="2",
+                ),
+                rx.button(
+                    "💾 Enregistrer tout",
+                    on_click=ClientPortalState.save_bulk_data,
+                    color_scheme="blue",
+                    size="2",
+                ),
+                width="100%",
+            ),
+            
+            rx.text(
+                "Modifiez rapidement les heures pour tous les employés",
+                size="2",
+                color=COLORS["neutral-500"],
+            ),
+            
+            # Status message
+            rx.cond(
+                ClientPortalState.bulk_status != "",
+                rx.callout(
+                    ClientPortalState.bulk_status.split(":")[-1],
+                    icon="info",
+                    color_scheme=rx.cond(
+                        ClientPortalState.bulk_status.contains("error"),
+                        "red",
+                        "green",
+                    ),
+                ),
+            ),
+            
+            # Bulk edit table
+            rx.cond(
+                ClientPortalState.bulk_data.length() > 0,
+                rx.table.root(
+                    rx.table.header(
+                        rx.table.row(
+                            rx.table.column_header_cell("Matricule"),
+                            rx.table.column_header_cell("Nom"),
+                            rx.table.column_header_cell("Base"),
+                            rx.table.column_header_cell("CP"),
+                            rx.table.column_header_cell("Abs"),
+                            rx.table.column_header_cell("HS125"),
+                            rx.table.column_header_cell("HS150"),
+                        ),
+                    ),
+                    rx.table.body(
+                        rx.foreach(
+                            ClientPortalState.bulk_data,
+                            bulk_row,
+                        ),
+                    ),
+                    width="100%",
+                ),
+                rx.center(
+                    rx.vstack(
+                        rx.text("Cliquez sur 'Charger' pour afficher les employés", color=COLORS["neutral-500"]),
+                        rx.button(
+                            "🔄 Charger les données",
+                            on_click=ClientPortalState.load_bulk_data,
+                            variant="outline",
+                        ),
+                        spacing="3",
+                    ),
+                    padding="3rem",
+                ),
+            ),
+            
+            spacing="4",
+            padding="1.5rem",
+            width="100%",
+        ),
+    )
+
+
 def summary_stats() -> rx.Component:
     """Summary statistics."""
     return rx.hstack(
@@ -555,11 +788,16 @@ def index() -> rx.Component:
                     rx.tabs.root(
                         rx.tabs.list(
                             rx.tabs.trigger("👤 Saisie individuelle", value="individual"),
+                            rx.tabs.trigger("📋 Saisie groupée", value="bulk"),
                             rx.tabs.trigger("📜 Historique", value="history"),
                         ),
                         rx.tabs.content(
                             individual_tab(),
                             value="individual",
+                        ),
+                        rx.tabs.content(
+                            bulk_tab(),
+                            value="bulk",
                         ),
                         rx.tabs.content(
                             history_tab(),

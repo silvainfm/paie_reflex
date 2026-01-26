@@ -335,7 +335,6 @@ class DataManager:
         # Stub for MVP
         return {"new": [], "existing": []}
 
-
 class DataAuditLogger:
     """Audit logging for data modifications."""
     
@@ -376,7 +375,6 @@ class DataAuditLogger:
         """Check if this is first bulletin for employee."""
         # Stub for MVP
         return False
-
 
 class ClientInputsManager:
     """Manages client input tracking for audit trail."""
@@ -458,7 +456,6 @@ class ClientInputsManager:
             return pl.DataFrame()
         finally:
             DataManager.close_connection(conn)
-
 
 # Initialize database on import
 DataManager.init_database()

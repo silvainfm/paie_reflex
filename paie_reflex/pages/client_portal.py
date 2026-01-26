@@ -129,9 +129,61 @@ class ClientPortalState(rx.State):
         else:
             self.change_history = []
     
-    def update_field(self, field: str, value):
-        """Update a form field value."""
-        self.form_values[field] = value
+    def update_base_heures(self, value: str):
+        """Update base_heures field."""
+        self.form_values["base_heures"] = float(value) if value else 0.0
+    
+    def update_heures_conges_payes(self, value: str):
+        """Update heures_conges_payes field."""
+        self.form_values["heures_conges_payes"] = float(value) if value else 0.0
+    
+    def update_heures_absence(self, value: str):
+        """Update heures_absence field."""
+        self.form_values["heures_absence"] = float(value) if value else 0.0
+    
+    def update_type_absence(self, value: str):
+        """Update type_absence field."""
+        self.form_values["type_absence"] = value
+    
+    def update_heures_sup_125(self, value: str):
+        """Update heures_sup_125 field."""
+        self.form_values["heures_sup_125"] = float(value) if value else 0.0
+    
+    def update_heures_sup_150(self, value: str):
+        """Update heures_sup_150 field."""
+        self.form_values["heures_sup_150"] = float(value) if value else 0.0
+    
+    def update_salaire_base(self, value: str):
+        """Update salaire_base field."""
+        self.form_values["salaire_base"] = float(value) if value else 0.0
+    
+    def update_prime(self, value: str):
+        """Update prime field."""
+        self.form_values["prime"] = float(value) if value else 0.0
+    
+    def update_type_prime(self, value: str):
+        """Update type_prime field."""
+        self.form_values["type_prime"] = value
+    
+    def update_prime_exceptionnelle(self, value: str):
+        """Update prime_exceptionnelle field."""
+        self.form_values["prime_exceptionnelle"] = float(value) if value else 0.0
+    
+    def update_tickets_restaurant(self, value: str):
+        """Update tickets_restaurant field."""
+        self.form_values["tickets_restaurant"] = float(value) if value else 0.0
+    
+    def update_avantage_logement(self, value: str):
+        """Update avantage_logement field."""
+        self.form_values["avantage_logement"] = float(value) if value else 0.0
+    
+    def update_avantage_transport(self, value: str):
+        """Update avantage_transport field."""
+        self.form_values["avantage_transport"] = float(value) if value else 0.0
+    
+    def update_remarques(self, value: str):
+        """Update remarques field."""
+        self.form_values["remarques"] = value
     
     async def save_employee_data(self):
         """Save employee data."""
@@ -233,17 +285,38 @@ def employee_card(emp: dict) -> rx.Component:
     )
 
 
+# Map field names to handlers
+FIELD_HANDLERS = {
+    "base_heures": ClientPortalState.update_base_heures,
+    "heures_conges_payes": ClientPortalState.update_heures_conges_payes,
+    "heures_absence": ClientPortalState.update_heures_absence,
+    "type_absence": ClientPortalState.update_type_absence,
+    "heures_sup_125": ClientPortalState.update_heures_sup_125,
+    "heures_sup_150": ClientPortalState.update_heures_sup_150,
+    "salaire_base": ClientPortalState.update_salaire_base,
+    "prime": ClientPortalState.update_prime,
+    "type_prime": ClientPortalState.update_type_prime,
+    "prime_exceptionnelle": ClientPortalState.update_prime_exceptionnelle,
+    "tickets_restaurant": ClientPortalState.update_tickets_restaurant,
+    "avantage_logement": ClientPortalState.update_avantage_logement,
+    "avantage_transport": ClientPortalState.update_avantage_transport,
+    "remarques": ClientPortalState.update_remarques,
+}
+
+
 def field_input(field: str, config: dict) -> rx.Component:
     """Render form field based on type."""
+    handler = FIELD_HANDLERS.get(field)
+    if not handler:
+        return rx.box()
+    
     if config["type"] == "number":
         return rx.vstack(
             rx.text(config["label"], size="1", color=COLORS["neutral-600"]),
             rx.input(
                 type="number",
-                value=ClientPortalState.form_values[field],
-                on_change=lambda v: ClientPortalState.update_field(field, float(v) if v else 0),
-                min=config.get("min", 0),
-                max=config.get("max", 100000),
+                default_value=str(config.get("default", 0)),
+                on_change=handler,
                 width="100%",
             ),
             spacing="1",
@@ -255,8 +328,8 @@ def field_input(field: str, config: dict) -> rx.Component:
             rx.text(config["label"], size="1", color=COLORS["neutral-600"]),
             rx.select(
                 config["options"],
-                value=ClientPortalState.form_values[field],
-                on_change=lambda v: ClientPortalState.update_field(field, v),
+                default_value=config.get("default", ""),
+                on_change=handler,
                 width="100%",
             ),
             spacing="1",
@@ -267,10 +340,10 @@ def field_input(field: str, config: dict) -> rx.Component:
         return rx.vstack(
             rx.text(config["label"], size="1", color=COLORS["neutral-600"]),
             rx.text_area(
-                value=ClientPortalState.form_values[field],
-                on_change=lambda v: ClientPortalState.update_field(field, v),
+                default_value="",
+                on_change=handler,
                 width="100%",
-                rows=3,
+                rows="3",
             ),
             spacing="1",
             align="start",

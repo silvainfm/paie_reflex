@@ -378,5 +378,87 @@ class DataAuditLogger:
         return False
 
 
+class ClientInputsManager:
+    """Manages client input tracking for audit trail."""
+    
+    @classmethod
+    def init_table(cls):
+        """Initialize client_inputs table."""
+        conn = DataManager.get_connection()
+        try:
+            conn.execute("""
+                CREATE SEQUENCE IF NOT EXISTS client_inputs_id_seq START 1
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS client_inputs (
+                    id INTEGER PRIMARY KEY DEFAULT nextval('client_inputs_id_seq'),
+                    company_id VARCHAR NOT NULL,
+                    period_year INTEGER NOT NULL,
+                    period_month INTEGER NOT NULL,
+                    matricule VARCHAR NOT NULL,
+                    field_name VARCHAR NOT NULL,
+                    field_value VARCHAR,
+                    entered_by VARCHAR NOT NULL,
+                    entered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_client_inputs_lookup
+                ON client_inputs(company_id, period_year, period_month, matricule)
+            """)
+        finally:
+            DataManager.close_connection(conn)
+    
+    @classmethod
+    def save_client_input(cls, company_id: str, year: int, month: int, matricule: str,
+                          field_name: str, field_value: str, entered_by: str):
+        """Log a client input change for audit trail."""
+        conn = DataManager.get_connection()
+        try:
+            # Ensure table exists
+            try:
+                conn.execute("SELECT 1 FROM client_inputs LIMIT 1")
+            except Exception:
+                cls.init_table()
+                DataManager.close_connection(conn)
+                conn = DataManager.get_connection()
+            
+            conn.execute("""
+                INSERT INTO client_inputs
+                (company_id, period_year, period_month, matricule, field_name, field_value, entered_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, [company_id, year, month, matricule, field_name, 
+                  str(field_value) if field_value is not None else None, entered_by])
+        except Exception as e:
+            print(f"Error saving client input: {e}")
+        finally:
+            DataManager.close_connection(conn)
+    
+    @classmethod
+    def get_client_inputs(cls, company_id: str, year: int, month: int,
+                          matricule: Optional[str] = None) -> pl.DataFrame:
+        """Get client inputs for audit (optionally filtered by matricule)."""
+        conn = DataManager.get_connection()
+        try:
+            if matricule:
+                result = conn.execute("""
+                    SELECT * FROM client_inputs
+                    WHERE company_id = ? AND period_year = ? AND period_month = ? AND matricule = ?
+                    ORDER BY entered_at DESC
+                """, [company_id, year, month, matricule]).pl()
+            else:
+                result = conn.execute("""
+                    SELECT * FROM client_inputs
+                    WHERE company_id = ? AND period_year = ? AND period_month = ?
+                    ORDER BY entered_at DESC
+                """, [company_id, year, month]).pl()
+            return result
+        except Exception as e:
+            print(f"Error loading client inputs: {e}")
+            return pl.DataFrame()
+        finally:
+            DataManager.close_connection(conn)
+
+
 # Initialize database on import
 DataManager.init_database()

@@ -1,7 +1,7 @@
 """Monaco Payroll Management System - Reflex Version"""
 
 import reflex as rx
-from .pages import home, import_page, processing, validation, dashboard, pdf_generation, export, config
+from .pages import home, import_page, processing, validation, dashboard, pdf_generation, export, config, client_portal
 from .state import GlobalState
 from pathlib import Path
 import sys
@@ -35,3 +35,4 @@ app.add_page(dashboard.index, route="/dashboard", title="Tableau", on_load=Globa
 app.add_page(pdf_generation.index, route="/pdf", title="PDFs", on_load=GlobalState.check_auth)
 app.add_page(export.index, route="/export", title="Export", on_load=GlobalState.check_auth)
 app.add_page(config.index, route="/config", title="Config", on_load=GlobalState.check_auth)
+app.add_page(client_portal.index, route="/client-portal", title="Portail Client", on_load=GlobalState.check_auth)

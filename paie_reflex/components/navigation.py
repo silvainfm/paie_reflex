@@ -162,6 +162,7 @@ def sidebar_nav() -> rx.Component:
         ("Tableau de bord", "/dashboard", "bar-chart-2"),
         ("PDF", "/pdf", "file-text"),
         ("Export", "/export", "download"),
+        ("Portail Client", "/client-portal", "users"),
         ("Configuration", "/config", "settings"),
     ]
 

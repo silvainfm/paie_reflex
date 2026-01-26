@@ -584,7 +584,7 @@ def individual_tab() -> rx.Component:
                                 spacing="1",
                                 align="start",
                             ),
-                            icon="alert-triangle",
+                            icon="triangle-alert",
                             color_scheme="red",
                         ),
                     ),
